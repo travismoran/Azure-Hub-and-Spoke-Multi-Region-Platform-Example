@@ -1,0 +1,32 @@
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfplan.*
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraform.lock.hcl
+
+# Terragrunt
+**/.terragrunt-cache/
+terragrunt-debug.tfvars.json
+
+# Terragrunt-generated files (recreated on every run)
+**/backend.tf
+**/provider.tf
+
+# Local environment - NEVER commit real subscription IDs, IPs, or names
+.env
+*.tfvars
+!*.example.tfvars
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store

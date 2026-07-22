@@ -1,0 +1,15 @@
+# Gitleaks configuration - extends the default ruleset.
+# This is a public example repository: no real credentials, subscription IDs,
+# or tenant IDs may ever be committed. Only documented placeholders are allowed.
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholder values used in examples and docs"
+regexes = [
+  # The all-zeros GUID used as a placeholder in .env.example and docs
+  '''00000000-0000-0000-0000-000000000000''',
+  # RFC 5737 documentation IP range used in examples
+  '''203\.0\.113\.\d{1,3}''',
+]

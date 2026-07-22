@@ -1,0 +1,61 @@
+# Plan-only workflow against the real Azure subscription, authenticated with
+# GitHub OIDC federated credentials - no secrets stored anywhere.
+#
+# Deliberately no apply job: this is an example repository, applies stay
+# local and manual. See docs/github-oidc-setup.md for the one-time setup and
+# the repository *variables* (not secrets - none of these values are secret)
+# it needs:
+#   AZURE_CLIENT_ID, AZURE_TENANT_ID, AZURE_SUBSCRIPTION_ID,
+#   TG_STATE_RESOURCE_GROUP, TG_STATE_STORAGE_ACCOUNT
+name: plan
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TERRAFORM_VERSION: 1.15.8
+  TERRAGRUNT_VERSION: 1.1.1
+
+jobs:
+  plan-dev:
+    runs-on: ubuntu-latest
+    # Skip silently on forks / repos that haven't configured OIDC variables.
+    if: vars.AZURE_CLIENT_ID != ''
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install terragrunt
+        run: |
+          curl -sL -o /usr/local/bin/terragrunt \
+            "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
+          chmod +x /usr/local/bin/terragrunt
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terragrunt plan (dev, both regions)
+        working-directory: live/dev
+        env:
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TG_STATE_RESOURCE_GROUP: ${{ vars.TG_STATE_RESOURCE_GROUP }}
+          TG_STATE_STORAGE_ACCOUNT: ${{ vars.TG_STATE_STORAGE_ACCOUNT }}
+          TG_NON_INTERACTIVE: "true"
+          TG_PROVIDER_CACHE: "1"
+        run: terragrunt run --all -- plan -input=false -lock=false
