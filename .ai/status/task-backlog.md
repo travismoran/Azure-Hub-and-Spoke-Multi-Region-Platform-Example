@@ -7,7 +7,6 @@
       `live/dev/env.hcl` + re-apply when demo no longer needed.
 - [ ] Set GitHub repo variables (AZURE_CLIENT_ID/TENANT/SUBSCRIPTION,
       TG_STATE_*) + OIDC app per docs/github-oidc-setup.md → activates plan.yml.
-- [ ] README: replace `git clone <this repo>` with the real URL.
 
 ## Next
 
@@ -29,6 +28,8 @@
 
 ## Done (this file is append-only history; newest first)
 
+- [x] 2026-07-21 scripts/setup-dev.sh: pinned checksum-verified gitleaks install
+      + hook activation; both install paths tested. README clone URL fixed.
 - [x] 2026-07-21 `.claude/` + `.ai/` workspace, git-hook secret gates, /secret-scan skill.
 - [x] 2026-07-21 Cross-region transit built + verified (plan 002, 35ba44d).
 - [x] 2026-07-21 Terraform-managed RBAC: cluster-admin, Network Contributor (aca1f47, 35ba44d).

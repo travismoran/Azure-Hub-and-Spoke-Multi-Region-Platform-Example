@@ -34,7 +34,8 @@ terraform fmt -recursive && terragrunt hcl fmt           # format
 bash githooks/pre-push                                   # manual secret sweep
 ```
 
-One-time per clone: `git config core.hooksPath githooks` (secret-scan hooks).
+One-time per clone: `./scripts/setup-dev.sh` - installs gitleaks (pinned,
+checksum-verified) and activates the secret-scan git hooks.
 Offline validation needs no Azure: unset `TG_STATE_*` and root.hcl falls back
 to a local backend; hub outputs are mocked.
 

@@ -60,7 +60,11 @@ Prereqs: [terraform](https://developer.hashicorp.com/terraform/install) and
 an Azure subscription.
 
 ```bash
-git clone <this repo> && cd azure-aks-platform
+git clone git@github.com:travismoran/Azure-Hub-and-Spoke-Multi-Region-Platform-Example.git
+cd Azure-Hub-and-Spoke-Multi-Region-Platform-Example
+
+# 0. One-time: install pinned gitleaks + activate secret-scan git hooks
+./scripts/setup-dev.sh
 
 # 1. Configure your environment (nothing real is ever committed)
 cp .env.example .env    # edit: subscription, tenant, state names, your IP
@@ -129,8 +133,11 @@ cheapest footprint - the transit routing deactivates automatically.
 
 ## Deliberate omissions
 
-- **No secrets, anywhere** - and no values that even look like them; CI runs
-  gitleaks and so does the pre-commit config (`pre-commit install`).
+- **No secrets, anywhere** - and no values that even look like them. Layered
+  enforcement: `scripts/setup-dev.sh` installs pinned gitleaks and activates
+  git hooks (pre-commit: file types + keyword patterns + gitleaks staged;
+  pre-push: worktree + full history), with the same checks in
+  `.pre-commit-config.yaml` and CI as backstops.
 - **No applies in CI** - this is an example; applying costs money and should
   be a human decision.
 - **No Terragrunt stacks** - the experimental `terragrunt.stack.hcl` feature

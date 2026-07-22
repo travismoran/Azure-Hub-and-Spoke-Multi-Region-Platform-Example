@@ -25,9 +25,12 @@ This is a **public** repository. Treat every commit as world-readable forever
 
 ## Enforcement layers (keep all of them working)
 
-1. `githooks/pre-commit` - blocks forbidden file types + gitleaks staged scan.
+0. `scripts/setup-dev.sh` - installs pinned gitleaks + activates the hooks;
+   the required first step on every clone/machine.
+1. `githooks/pre-commit` - blocks forbidden file types + keyword patterns +
+   gitleaks staged scan (keyword layer always runs; entropy scanners miss
+   low-entropy assignments).
 2. `githooks/pre-push` - gitleaks over working tree + full history.
-   (Enable: `git config core.hooksPath githooks`.)
 3. `.pre-commit-config.yaml` - same checks for pre-commit-framework users.
 4. CI `ci.yml` - gitleaks on every push/PR (last line of defense).
 5. On demand: the `secret-scan` skill (`.claude/skills/secret-scan/`).

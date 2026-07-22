@@ -41,7 +41,8 @@ prod/ is defined but has NEVER been applied (by design - plan-only).
   (kubelogin azurecli mode). `~/.kube/config` is a Rancher symlink - don't touch.
 - Tools in `~/.local/bin`: terraform 1.15.8, terragrunt 1.1.1, az (pip venv at
   `~/.local/share/azure-cli-venv`), kubelogin, gitleaks.
-- Git hooks: run `git config core.hooksPath githooks` if not yet set.
+- Security tooling: `./scripts/setup-dev.sh` (gitleaks install + hook
+  activation) - already run on this machine.
 
 ## Immediate next steps
 
