@@ -12,7 +12,9 @@ locals {
   private_cluster_enabled         = true
   api_server_authorized_ip_ranges = []
   admin_group_object_ids          = []
-  network_policy                  = "cilium"
+  # In prod, prefer a break-glass admin group over individual users.
+  cluster_admin_principal_ids = compact([get_env("TG_CLUSTER_ADMIN_OBJECT_ID", "")])
+  network_policy              = "cilium"
 
   system_node_pool = {
     vm_size              = "Standard_D4ds_v5"

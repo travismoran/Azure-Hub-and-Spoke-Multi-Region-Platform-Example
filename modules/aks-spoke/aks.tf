@@ -95,3 +95,11 @@ module "aks" {
   } : null
   onboard_monitoring = var.enable_container_insights
 }
+
+resource "azurerm_role_assignment" "cluster_admin" {
+  for_each = var.cluster_admin_principal_ids
+
+  scope                = module.aks.resource_id
+  role_definition_name = "Azure Kubernetes Service RBAC Cluster Admin"
+  principal_id         = each.value
+}

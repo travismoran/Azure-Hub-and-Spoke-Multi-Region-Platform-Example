@@ -41,6 +41,7 @@ inputs = {
   private_cluster_enabled         = local.env.private_cluster_enabled
   api_server_authorized_ip_ranges = local.env.api_server_authorized_ip_ranges
   admin_group_object_ids          = local.env.admin_group_object_ids
+  cluster_admin_principal_ids     = local.env.cluster_admin_principal_ids
   system_node_pool                = local.env.system_node_pool
   user_node_pools                 = local.env.user_node_pools
   network_policy                  = local.env.network_policy

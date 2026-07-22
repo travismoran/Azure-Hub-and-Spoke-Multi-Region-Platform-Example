@@ -13,7 +13,10 @@ locals {
   # Empty list = open API server; fine for throwaway clusters, but set it.
   api_server_authorized_ip_ranges = compact([get_env("TG_AUTHORIZED_IP", "")])
   admin_group_object_ids          = []
-  network_policy                  = null
+  # Who can kubectl: your own object id, via env var (never committed).
+  #   az ad signed-in-user show --query id -o tsv
+  cluster_admin_principal_ids = compact([get_env("TG_CLUSTER_ADMIN_OBJECT_ID", "")])
+  network_policy              = null
 
   system_node_pool = {
     vm_size              = "Standard_B2ms" # 2 vCPU / 8 GiB burstable, ~$60/mo

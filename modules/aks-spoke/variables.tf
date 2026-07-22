@@ -126,6 +126,20 @@ variable "admin_group_object_ids" {
   default     = []
 }
 
+variable "cluster_admin_principal_ids" {
+  description = <<DESC
+Entra ID principal object IDs (users, groups, or service principals) granted
+'Azure Kubernetes Service RBAC Cluster Admin' on the cluster scope. Without at
+least one entry (or an admin_group_object_ids membership) nobody can use
+kubectl, since the cluster runs Azure RBAC with local accounts as the only
+fallback. Supply values via env var (e.g. TG_CLUSTER_ADMIN_OBJECT_ID) - never
+commit real object IDs. Creating role assignments requires the deploying
+identity to hold roleAssignments/write (Owner or User Access Administrator).
+DESC
+  type        = set(string)
+  default     = []
+}
+
 variable "system_node_pool" {
   description = "System node pool sizing. Defaults to a single burstable B2ms - the cheapest sensible system node."
   type = object({
