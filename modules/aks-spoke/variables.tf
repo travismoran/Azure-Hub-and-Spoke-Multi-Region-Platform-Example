@@ -52,6 +52,24 @@ variable "hub_vnet_name" {
   type        = string
 }
 
+variable "firewall_private_ip" {
+  description = <<DESC
+Private IP of the hub firewall (from the hub's outputs). When set, a route
+table on the AKS node subnet sends firewall_routed_cidrs traffic to it,
+enabling spoke->hub->hub->spoke transit. More-specific Azure system routes
+keep intra-VNet and spoke<->hub traffic direct, and internet egress stays on
+the cluster load balancer. null (the default) means no UDRs at all.
+DESC
+  type        = string
+  default     = null
+}
+
+variable "firewall_routed_cidrs" {
+  description = "Destination CIDRs routed to the hub firewall when firewall_private_ip is set."
+  type        = list(string)
+  default     = ["10.0.0.0/8"]
+}
+
 variable "pod_cidr" {
   description = "Pod CIDR for Azure CNI overlay. Non-routed; safe to reuse across clusters."
   type        = string

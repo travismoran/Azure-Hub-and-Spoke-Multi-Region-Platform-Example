@@ -94,6 +94,49 @@ The spoke creates **both** peering directions via the vnet module's
 `create_reverse_peering`, so adding or destroying a spoke never touches the
 hub's state.
 
+## Hub-to-hub transit (cross-region cluster-to-cluster)
+
+**VNet peering is not transitive.** Peering the two hubs does nothing for
+spoke-to-spoke traffic by itself - packets from spoke1 arriving at hub1 are
+dropped unless something in the hub *forwards* them. This repo implements the
+standard solution: an Azure Firewall in each hub plus user-defined routes.
+
+The data path from a pod in dev/westus3 to a service in dev/eastus2:
+
+```
+pod 192.168.x.x (overlay, SNATs to node 10.11.x.x)
+  → node subnet UDR: 10.0.0.0/8 → FW1 (10.10.0.4)
+  → FW1 subnet UDR: 10.21.0.0/16 → FW2 (10.20.0.4)   [rides hub<->hub global peering]
+  → FW2: hub2 is peered with spoke2, system route delivers
+  → node/ILB 10.21.x.x
+```
+
+The pieces, all toggled by `enable_firewall` in `env.hcl`:
+
+- **Firewall Basic** in each hub (`modules/hub`), with a policy rule
+  collection allowing private-to-private transit (Azure Firewall is
+  default-deny).
+- **Hub↔hub global peering**, declared on exactly one side
+  (`live/dev/eastus2/hub/terragrunt.hcl`) with `allow_forwarded_traffic` in
+  both directions, since transiting packets carry spoke source addresses.
+- **Firewall-subnet routes** (`firewall_route_entries` per hub leaf): each
+  firewall forwards the *remote* spoke CIDR to the *remote* firewall.
+- **Node-subnet route table** (`modules/aks-spoke`, driven by the hub's
+  `firewall_private_ip` output): `10.0.0.0/8 → local firewall`. Azure's
+  more-specific system routes keep intra-VNet and spoke↔hub traffic direct,
+  and internet egress stays on the cluster load balancer (`outbound_type`
+  is untouched).
+
+Two conventions worth knowing:
+
+- Firewall private IPs are **deterministic**: Azure assigns the first host
+  (.4) of AzureFirewallSubnet, which this repo always carves as the first /26
+  of the hub range - so `10.10.0.4` / `10.20.0.4` can be written as constants
+  in the hub leaf files instead of creating a circular dependency between the
+  two hub states (each would need the other's firewall IP).
+- Only the pod/node path is routed through the firewalls. The AKS API servers
+  are reached over their public endpoints as before.
+
 ## Security posture (and its dev-mode trade-offs)
 
 - Entra ID managed AAD + Azure RBAC for Kubernetes authorization; OIDC

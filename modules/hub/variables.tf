@@ -56,6 +56,40 @@ variable "firewall_management_subnet_prefix" {
   default     = null
 }
 
+variable "firewall_route_entries" {
+  description = <<DESC
+Extra routes for the firewall subnet's route table. Used for hub-to-hub
+transit: point each remote spoke CIDR at the remote hub's firewall private IP.
+DESC
+  type = set(object({
+    name                = string
+    address_prefix      = string
+    next_hop_ip_address = string
+  }))
+  default = []
+}
+
+variable "peer_hub" {
+  description = <<DESC
+Optional global VNet peering to another hub (both directions are created, so
+define this on exactly ONE of the two hubs). Peering alone does not make
+spoke-to-spoke traffic flow - that also needs firewalls and UDRs; see
+docs/architecture.md.
+DESC
+  type = object({
+    vnet_id             = string
+    vnet_name           = string
+    resource_group_name = string
+  })
+  default = null
+}
+
+variable "transit_cidrs" {
+  description = "Source/destination CIDRs the firewall allows to transit between hubs and spokes."
+  type        = list(string)
+  default     = ["10.0.0.0/8"]
+}
+
 variable "enable_telemetry" {
   description = "Enable AVM module telemetry. Off by default to avoid any phone-home from this example."
   type        = bool

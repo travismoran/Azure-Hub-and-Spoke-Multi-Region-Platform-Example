@@ -36,7 +36,10 @@ locals {
   }
 
   # --- Hub ---
-  enable_firewall   = false # ~$300+/mo even on Basic - off in dev
+  # Firewalls cost ~$300/mo each even on Basic. Enabled here to demonstrate
+  # true hub-to-hub transit (see docs/architecture.md); set false to fall
+  # back to isolated regions and the cheapest possible footprint.
+  enable_firewall   = true
   firewall_sku_tier = "Basic"
 
   # --- Optional components (all the expensive telemetry/security is OFF) ---

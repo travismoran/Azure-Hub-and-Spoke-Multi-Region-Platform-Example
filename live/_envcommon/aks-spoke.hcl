@@ -35,6 +35,7 @@ inputs = {
   endpoints_subnet_prefix = local.region.endpoints_subnet_prefix
   hub_vnet_id             = dependency.hub.outputs.vnet_id
   hub_vnet_name           = dependency.hub.outputs.vnet_name
+  firewall_private_ip     = dependency.hub.outputs.firewall_private_ip
 
   kubernetes_version              = local.env.kubernetes_version
   aks_sku_tier                    = local.env.aks_sku_tier

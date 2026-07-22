@@ -12,6 +12,26 @@ resource "azurerm_resource_group" "spoke" {
   tags     = var.tags
 }
 
+resource "azurerm_route_table" "nodes" {
+  count = var.firewall_private_ip != null ? 1 : 0
+
+  name                = "rt-aks-${var.environment}-${var.region_short}"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.spoke.name
+  tags                = var.tags
+}
+
+resource "azurerm_route" "via_firewall" {
+  for_each = var.firewall_private_ip != null ? toset(var.firewall_routed_cidrs) : toset([])
+
+  name                   = "to-${replace(replace(each.value, ".", "-"), "/", "--")}"
+  resource_group_name    = azurerm_resource_group.spoke.name
+  route_table_name       = azurerm_route_table.nodes[0].name
+  address_prefix         = each.value
+  next_hop_type          = "VirtualAppliance"
+  next_hop_in_ip_address = var.firewall_private_ip
+}
+
 module "spoke_vnet" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "0.19.0"
@@ -27,6 +47,7 @@ module "spoke_vnet" {
     aks_nodes = {
       name             = "snet-aks-nodes"
       address_prefixes = [var.nodes_subnet_prefix]
+      route_table      = var.firewall_private_ip != null ? { id = azurerm_route_table.nodes[0].id } : null
     }
     endpoints = {
       name             = "snet-endpoints"

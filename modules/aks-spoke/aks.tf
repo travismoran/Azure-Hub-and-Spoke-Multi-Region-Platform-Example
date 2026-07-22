@@ -96,6 +96,26 @@ module "aks" {
   onboard_monitoring = var.enable_container_insights
 }
 
+# BYO-VNet requirement: the cluster's control-plane identity must be able to
+# join subnets (internal load balancers) and manage the node route table.
+# Without these, internal LoadBalancer services stay <pending> with
+# AuthorizationFailed events.
+resource "azurerm_role_assignment" "aks_vnet_network_contributor" {
+  scope                = module.spoke_vnet.resource_id
+  role_definition_name = "Network Contributor"
+  principal_id         = module.aks.identity_principal_id
+  principal_type       = "ServicePrincipal"
+}
+
+resource "azurerm_role_assignment" "aks_route_table_network_contributor" {
+  count = var.firewall_private_ip != null ? 1 : 0
+
+  scope                = azurerm_route_table.nodes[0].id
+  role_definition_name = "Network Contributor"
+  principal_id         = module.aks.identity_principal_id
+  principal_type       = "ServicePrincipal"
+}
+
 resource "azurerm_role_assignment" "cluster_admin" {
   for_each = var.cluster_admin_principal_ids
 

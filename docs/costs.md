@@ -18,6 +18,7 @@ for current numbers.
 | System node pool | 1× B2ms (burstable) | 60 | 3× D4ds_v5, zoned | 620 |
 | User node pool | 0-2× D2as_v5 **Spot** (scales from 0) | 0-30 | 2-6× D4as_v5 on-demand | 280+ |
 | Egress | AKS standard LB + 1 public IP | ~8 | Azure Firewall Standard + UDR | 912+ |
+| Hub firewall (transit demo)* | Firewall Basic, `enable_firewall = true` | ~300 | (included above) | - |
 | Container registry | ACR Basic | 5 | ACR Premium | 50 |
 | Log Analytics | off | 0 | on, ~10 GB/day | ~830 |
 | Container insights | off | 0 | on | (in LAW ingest) |
@@ -25,6 +26,11 @@ for current numbers.
 | Azure Policy addon | off | 0 | on | 0 |
 | AVM telemetry | off | 0 | off | 0 |
 | **Total** | | **~$75-100** | | **~$3,000+** |
+
+\* The dev tree currently ships with `enable_firewall = true` to demonstrate
+cross-region hub-to-hub transit (see architecture.md). Flip it to `false` in
+`live/dev/env.hcl` for the ~$75-100/mo floor - the UDRs and peering-transit
+pieces deactivate automatically.
 
 Multiply by regions you actually apply. The repo defines dev+prod × 2 regions,
 but nothing forces you to apply more than `dev/westus3`.
