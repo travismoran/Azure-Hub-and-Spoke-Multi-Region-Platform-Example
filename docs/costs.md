@@ -27,10 +27,10 @@ for current numbers.
 | AVM telemetry | off | 0 | off | 0 |
 | **Total** | | **~$75-100** | | **~$3,000+** |
 
-\* The dev tree currently ships with `enable_firewall = true` to demonstrate
-cross-region hub-to-hub transit (see architecture.md). Flip it to `false` in
-`live/dev/env.hcl` for the ~$75-100/mo floor - the UDRs and peering-transit
-pieces deactivate automatically.
+\* Off by default (`enable_firewall = false` in `live/dev/env.hcl`) for the
+~$75-100/mo floor. Flip to `true` to enable cross-region hub-to-hub transit
+(see architecture.md) - UDRs, firewall routes, and transit rules activate
+automatically. Verified end-to-end 2026-07-21.
 
 Multiply by regions you actually apply. The repo defines dev+prod × 2 regions,
 but nothing forces you to apply more than `dev/westus3`.

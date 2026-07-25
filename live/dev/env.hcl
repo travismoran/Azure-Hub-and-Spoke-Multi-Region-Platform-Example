@@ -36,10 +36,12 @@ locals {
   }
 
   # --- Hub ---
-  # Firewalls cost ~$300/mo each even on Basic. Enabled here to demonstrate
-  # true hub-to-hub transit (see docs/architecture.md); set false to fall
-  # back to isolated regions and the cheapest possible footprint.
-  enable_firewall   = true
+  # Firewalls cost ~$300/mo each even on Basic, so dev defaults to none -
+  # regions are isolated and spokes egress via their load balancer. Set true
+  # to enable cross-region hub-to-hub transit (see docs/architecture.md);
+  # the UDRs, firewall routes, and transit rules all activate automatically.
+  # Verified working 2026-07-21: .ai/test-results/2026-07-21-aks-e2e.md
+  enable_firewall   = false
   firewall_sku_tier = "Basic"
 
   # --- Optional components (all the expensive telemetry/security is OFF) ---

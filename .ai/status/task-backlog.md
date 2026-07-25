@@ -4,10 +4,6 @@
 
 - [ ] Set GitHub repo variables (AZURE_CLIENT_ID/TENANT/SUBSCRIPTION,
       TG_STATE_*) + OIDC app per docs/github-oidc-setup.md → activates plan.yml.
-- [ ] Decide committed default for `enable_firewall` in `live/dev/env.hcl`:
-      currently `true` (transit demo config). Infra is destroyed so nothing
-      bills either way, but the committed default determines what the next
-      apply costs (~$600/mo/2-regions difference) and what forkers get.
 
 ## Next
 
@@ -27,6 +23,8 @@
 
 ## Done (this file is append-only history; newest first)
 
+- [x] 2026-07-25 `enable_firewall` default back to `false` in dev - cheapest
+      footprint for forkers; transit demo re-enabled by one toggle.
 - [x] 2026-07-22 Full teardown: 72 resources destroyed across both dev regions,
       zero errors/orphans (state + bootstrap preserved). hello-eus2 went with it.
 - [x] 2026-07-21 scripts/setup-dev.sh: pinned checksum-verified gitleaks install

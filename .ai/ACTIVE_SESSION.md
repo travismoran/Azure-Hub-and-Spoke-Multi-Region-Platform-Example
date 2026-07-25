@@ -26,10 +26,11 @@ source .env && az login    # subscription context
 cd live/dev/westus3 && terragrunt run --all -- apply   # ~10 min, ~$100/mo
 cd ../eastus2      && terragrunt run --all -- apply   # ~25 min with firewalls
 ```
-Note: `live/dev/env.hcl` still has `enable_firewall = true` (transit demo
-config, ~$300/mo/region). Set false before re-applying if you don't need
-cross-region transit. Everything else (RBAC, routes, peering) reactivates
-automatically; state storage + provider registrations already in place.
+`enable_firewall` is back to `false` (2026-07-25), so a re-apply lands at
+the ~$75-100/mo/region floor with isolated regions. Flip it true to restore
+the verified cross-region transit path (~+$300/mo/region). State storage +
+provider registrations already in place. Note: the eus2 hub leaf still
+declares the hub↔hub peering inputs - inert and free without firewalls.
 
 ## What this project has proven end-to-end
 
@@ -49,5 +50,4 @@ automatically; state storage + provider registrations already in place.
 
 See .ai/status/task-backlog.md. Top of stack:
 1. Set the 5 GitHub repo variables to activate plan.yml (docs/github-oidc-setup.md).
-2. Decide default for `enable_firewall` in dev now that the demo is done.
-3. Verify ci.yml is green on GitHub.
+2. Verify ci.yml is green on GitHub.

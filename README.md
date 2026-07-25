@@ -106,7 +106,7 @@ Set per environment in `live/<env>/env.hcl`:
 | Toggle | dev | prod | Cost impact |
 |---|---|---|---|
 | `aks_sku_tier` | `Free` | `Standard` | $73/mo/cluster |
-| `enable_firewall` | `true`* | `true` | $300-900+/mo |
+| `enable_firewall` | `false`* | `true` | $300-900+/mo |
 | `private_cluster_enabled` | `false` | `true` | needs jumpbox/Bastion to reach |
 | `acr_sku` | `Basic` | `Premium` | $5 vs $50/mo |
 | `enable_log_analytics` | `false` | `true` | ~$2.76/GB ingested |
@@ -117,9 +117,10 @@ Set per environment in `live/<env>/env.hcl`:
 | system pool | 1× B2ms | 3× D4ds_v5 zoned | ~10× |
 | user pools | Spot, scales from 0 | on-demand zoned | ~5-10× |
 
-\* dev enables Firewall Basic to demonstrate cross-region hub-to-hub transit
-(see [docs/architecture.md](docs/architecture.md)); set it `false` for the
-cheapest footprint - the transit routing deactivates automatically.
+\* flip to `true` to enable the cross-region hub-to-hub transit path
+(Firewall Basic per hub, UDRs, transit rules - all activate automatically;
+see [docs/architecture.md](docs/architecture.md)). Verified end-to-end;
+evidence in `.ai/test-results/`.
 
 ## CI
 
