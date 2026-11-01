@@ -25,15 +25,16 @@ dependency "hub" {
 }
 
 dependency "platform_network" {
-  config_path = "../../platform-network"
+  config_path = "../../../platform/network"
 
   # Shape must match modules/platform-network/outputs.tf exactly. Empty pool
   # map = static addressing, which is also what enable_avnm = false yields.
   mock_outputs = {
     ipam_pool_ids      = {}
     ipam_pool_prefixes = {}
-    network_group_id   = null
+    network_group_ids  = {}
     network_manager_id = null
+    root_pool_ids      = {}
   }
   mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
@@ -48,7 +49,7 @@ inputs = {
   # pool; with enable_avnm the VNet is allocated from the pool instead.
   spoke_address_space = [cidrsubnet(local.region.stamp_pool_prefix, local.env.stamp_prefix_length - tonumber(split("/", local.region.stamp_pool_prefix)[1]), 0)]
   stamp_prefix_length = local.env.stamp_prefix_length
-  ipam_pool_id        = lookup(dependency.platform_network.outputs.ipam_pool_ids, local.region.region_short, null)
+  ipam_pool_id        = lookup(lookup(dependency.platform_network.outputs.ipam_pool_ids, local.env.environment, {}), local.region.region_short, null)
 
   hub_vnet_id         = dependency.hub.outputs.vnet_id
   hub_vnet_name       = dependency.hub.outputs.vnet_name

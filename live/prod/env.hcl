@@ -38,13 +38,11 @@ locals {
   firewall_sku_tier = "Standard"
 
   # --- Network platform: AVNM + IPAM + global mesh (docs/network-platform.md) ---
+  # prod stamps are IPAM-allocated and meshed; dev's pools are denied
+  # inbound automatically (derived from every other env's region.hcl).
   enable_avnm         = true
-  avnm_location       = "westus3"
   regions             = ["westus3", "eastus2"]
   stamp_prefix_length = 22
-  # Backstop: nonprod stamp pools (live/dev/*/region.hcl) can never reach
-  # prod stamps, whatever peerings or on-prem routes exist.
-  security_admin_deny_inbound_from = ["10.11.0.0/16", "10.21.0.0/16"]
 
   # --- Optional components ---
   enable_acr                = true

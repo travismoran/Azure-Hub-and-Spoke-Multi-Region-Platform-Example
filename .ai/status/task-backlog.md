@@ -2,10 +2,17 @@
 
 ## Now / decisions pending
 
+- [ ] Plan 004 go-live: user elevates tenant-root access + fills
+      `TG_SUBSCRIPTION_*` in .env → apply `live/platform` (MGs, AVNM; $0)
+      → verify MG tree / placement / AVNM scope. Tomorrow: create `prod`
+      subscription (24h rate limit) → `TG_SUBSCRIPTION_PROD` → re-run
+      bootstrap/register-providers.sh → re-apply management-groups.
 - [ ] Plan 003 live verification: apply dev with `enable_avnm = true` (both
       regions, no firewalls), prove mesh cluster-to-cluster + policy
       membership + security admin rule; record in .ai/test-results/.
       Then decide: merge feat/avnm-ipam-mesh → main.
+- [ ] Consider renaming the original "Pay-As-You-Go" subscription to
+      "management" in the portal (cosmetic; IDs are what matter).
 
 - [ ] Set GitHub repo variables (AZURE_CLIENT_ID/TENANT/SUBSCRIPTION,
       TG_STATE_*) + OIDC app per docs/github-oidc-setup.md → activates plan.yml.
@@ -19,7 +26,7 @@
       Resolver (~$180/mo/hub); API server VNet integration subnet; stamp
       catalog → generated Cilium caller policies.
 - [ ] N-stamp demo: second aks-spoke in dev/westus3 (`stamp-id` differs)
-      to show IPAM handing out 10.11.4.0/22 and auto-joining the mesh.
+      to show IPAM handing out 10.16.4.0/22 and auto-joining the mesh.
 
 - [ ] Verify ci.yml went green on GitHub (offline validate path).
 - [ ] Verify AKS 0.6.7 `count_of` vs cluster-autoscaler: does a second apply
@@ -36,6 +43,12 @@
 - [ ] tflint + checkov in CI (kept out initially for signal/noise).
 
 ## Done (this file is append-only history; newest first)
+
+- [x] 2026-11-01 Plan 004 code+docs: modules/management-groups, tenant-wide
+      platform-network at MG scope with nested IPAM pools, subscription
+      placement in root.hcl, renumbered address plan, register-providers.sh,
+      docs/subscriptions.md. Providers registered in connectivity + dev.
+      Offline validate 10/10. Branch feat/avnm-ipam-mesh.
 
 - [x] 2026-11-01 Plan 003 code+docs: modules/platform-network (AVNM, IPAM
       pools, tag-driven network group, global mesh, security admin), stamp

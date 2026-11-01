@@ -36,8 +36,8 @@ inputs = {
   firewall_route_entries = [
     {
       name                = "to-spoke-dev-wus3"
-      address_prefix      = "10.11.0.0/16"
-      next_hop_ip_address = "10.10.0.4"
+      address_prefix      = "10.16.0.0/16"
+      next_hop_ip_address = "10.0.0.4"
     },
   ]
 }

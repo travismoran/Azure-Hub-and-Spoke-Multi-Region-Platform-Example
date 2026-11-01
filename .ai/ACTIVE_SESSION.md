@@ -1,6 +1,6 @@
 # ACTIVE SESSION - read me first
 
-Last updated: 2026-11-01 (plan 003 implemented offline, not applied)
+Last updated: 2026-11-01 (plans 003 + 004 implemented offline, not applied)
 
 ## 🚨 Live infrastructure & money meter
 
@@ -12,8 +12,16 @@ Reverse dependency order held (spokes → eus2 hub → wus3 hub).
 
 Still existing, on purpose:
 - `rg-tfstate-dev` + state storage account (names in `.env`) - holds all
-  terraform state; costs pennies; enables identical rebuild.
+  terraform state; costs pennies; enables identical rebuild. Lives in the
+  original "Pay-As-You-Go" subscription = the **management** subscription.
 - prod/ tree: defined, never applied (by design).
+
+Subscriptions in the tenant (2026-11-01; IDs only in `.env`, never here):
+`Pay-As-You-Go` (management: state), `connectivity`, `dev` - both new,
+created in the portal (billing account is MOSP → no API vending), resource
+providers registered via bootstrap/register-providers.sh. `prod`: blocked
+by the 24h subscription-creation rate limit, create tomorrow. No
+management groups exist yet (needs tenant-root elevation, user action).
 
 Stale local artifacts: `~/.kube/aks-demo-dev-{wus3,eus2}.yaml` point at
 deleted clusters - regenerate with `az aks get-credentials --file ...` after
@@ -46,20 +54,26 @@ declares the hub↔hub peering inputs - inert and free without firewalls.
   kubelogin, gitleaks 8.24.3.
 - Security tooling: `./scripts/setup-dev.sh` - already run on this machine.
 
-## In flight: plan 003 (branch feat/avnm-ipam-mesh)
+## In flight: plans 003 + 004 (branch feat/avnm-ipam-mesh)
 
-AVNM + IPAM + global mesh "stamp" model from the Claude Docs plan, adapted
-per ADR-009..011. New unit `live/<env>/platform-network` is a dependency of
-every spoke → **apply from `live/<env>`**, not a region folder (or
-`--queue-include-external`). Spoke VNets are now /22 stamps (static first
-/22 of the old /16 in dev; IPAM-allocated in prod). Everything validates
-offline (10 units); nothing applied yet. Validate before apply:
-`cd live/dev && terragrunt run --all -- plan` with .env sourced.
+003: AVNM + IPAM + global mesh "stamp" model (ADR-010/011). 004: the
+enterprise layout on top (ADR-012) - `live/platform/{management-groups,
+network}` applied once per tenant, hubs + AVNM in the connectivity
+subscription, stamps in `TG_SUBSCRIPTION_<ENV>`, placement in
+`live/root.hcl`. Apply order: `live/platform` → `live/dev`. Everything
+validates offline (10 units); nothing applied yet. Address plan renumbered
+(docs/ipam.md): hubs 10.0/10.1.x, stamp roots 10.16/10.32.0.0/12.
 
 ## Immediate next steps
 
 See .ai/status/task-backlog.md. Top of stack:
-1. Live-verify plan 003 in dev with `enable_avnm = true` (~$150/mo while up:
-   2 managed VNets + nodes); record evidence; merge to main.
-2. Set the 5 GitHub repo variables to activate plan.yml (docs/github-oidc-setup.md).
-3. Verify ci.yml is green on GitHub.
+1. User: tenant-root elevation (docs/subscriptions.md step 4) + fill
+   `TG_SUBSCRIPTION_MANAGEMENT/CONNECTIVITY/DEV` in .env, `PROD=""`.
+2. `cd live/platform && terragrunt run --all -- plan` then apply ($0:
+   MGs + AVNM + empty prod pools). Verify in portal / `az account
+   management-group show -n mg-demo -e -r`.
+3. Tomorrow: prod subscription → `TG_SUBSCRIPTION_PROD` → register
+   providers → re-apply management-groups.
+4. Live-verify plan 003 in dev with `enable_avnm = true` (~$150/mo while
+   up); record evidence; merge to main.
+5. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).

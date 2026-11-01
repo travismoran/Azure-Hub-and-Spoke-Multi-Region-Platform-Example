@@ -4,27 +4,37 @@ Every VNet in every environment/region gets a globally non-overlapping slice
 of `10.0.0.0/8`, so any peering (hub↔hub, the AVNM mesh between stamps, VPN
 to on-prem) is possible without renumbering.
 
-Scheme: second octet = `env_base + region_index * 10`, where dev starts at 10,
-prod at 110, and regions are numbered westus3=0, eastus2=1. The hub takes the
-`.X0.0.0/22`; the `.X1.0.0/16` is the **stamp pool** for that env/region,
-from which every AKS stamp VNet takes a /22.
+Two kinds of space: a small block per region for **hubs** (static, in the
+connectivity subscription), and a **/12 root pool per region** for stamps,
+split into one /16 per environment. The root → environment hierarchy is
+exactly how the AVNM IPAM pools are nested, so the portal shows utilisation
+per region and per environment.
 
-| Env  | Region  | Hub VNet (/22) | Stamp pool (/16) | First stamp VNet (/22) |
-|------|---------|----------------|------------------|------------------------|
-| dev  | westus3 | 10.10.0.0/22   | 10.11.0.0/16     | 10.11.0.0/22           |
-| dev  | eastus2 | 10.20.0.0/22   | 10.21.0.0/16     | 10.21.0.0/22           |
-| prod | westus3 | 10.110.0.0/22  | 10.111.0.0/16    | 10.111.0.0/22          |
-| prod | eastus2 | 10.120.0.0/22  | 10.121.0.0/16    | 10.121.0.0/22          |
+| Region  | Hubs (/22 each, from)  | Stamp root pool (/12) | dev stamp pool (/16) | prod stamp pool (/16) |
+|---------|------------------------|-----------------------|----------------------|-----------------------|
+| westus3 | 10.0.0.0/16 (dev .0.0, prod .4.0) | 10.16.0.0/12 (10.16-10.31) | 10.16.0.0/16 | 10.17.0.0/16 |
+| eastus2 | 10.1.0.0/16 (dev .0.0, prod .4.0) | 10.32.0.0/12 (10.32-10.47) | 10.32.0.0/16 | 10.33.0.0/16 |
 
-`hub_address_space` and `stamp_pool_prefix` live in each
-`live/<env>/<region>/region.hcl`. Who hands out the /22 depends on
-`enable_avnm` in `env.hcl`:
+The next region takes the next /16 for hubs (10.2.0.0/16) and the next /12
+for stamps (10.48.0.0/12); the next environment takes the next /16 inside
+each root. Fourteen more /16s remain in every root.
+
+| Env  | Region  | Hub VNet (/22) | Stamp pool (/16) | First (static) stamp VNet (/22) |
+|------|---------|----------------|------------------|---------------------------------|
+| dev  | westus3 | 10.0.0.0/22    | 10.16.0.0/16     | 10.16.0.0/22                    |
+| dev  | eastus2 | 10.1.0.0/22    | 10.32.0.0/16     | 10.32.0.0/22                    |
+| prod | westus3 | 10.0.4.0/22    | 10.17.0.0/16     | 10.17.0.0/22                    |
+| prod | eastus2 | 10.1.4.0/22    | 10.33.0.0/16     | 10.33.0.0/22                    |
+
+Root pools live in `live/platform/platform.hcl`; `hub_address_space` and
+`stamp_pool_prefix` live in each `live/<env>/<region>/region.hcl`. Who hands
+out a stamp's /22 depends on `enable_avnm` in `env.hcl`:
 
 - **off (dev default)**: the spoke uses the first /22 of the pool statically
   (`cidrsubnet(stamp_pool_prefix, 6, 0)` in `_envcommon/aks-spoke.hcl`).
-- **on (prod)**: `modules/platform-network` creates one AVNM IPAM pool per
-  region over `stamp_pool_prefix`, and the spoke VNet requests a
-  `/stamp_prefix_length` from it. IPAM picks the prefix and guarantees it
+- **on (prod)**: `modules/platform-network` creates the pool hierarchy in
+  AVNM and the spoke VNet requests a `/stamp_prefix_length` from its
+  environment's pool in its region. IPAM picks the prefix and guarantees it
   overlaps nothing else in the pool. 64 stamps fit per /16.
 
 IPAM cannot remove a prefix from a pool or a VNet once allocated, so pools
@@ -33,7 +43,7 @@ are sized generously from day one.
 ## Inside a stamp /22
 
 Every stamp is cut the same way, relative to its prefix (shown for
-10.11.0.0/22). `modules/aks-spoke` derives these with `cidrsubnet` from
+10.16.0.0/22). `modules/aks-spoke` derives these with `cidrsubnet` from
 whatever prefix it has - static or IPAM-allocated - so the layout is
 identical in both modes. A /21 stamp (`stamp_prefix_length = 21`) doubles
 every subnet.
@@ -58,11 +68,13 @@ Carved automatically by `modules/hub` when the firewall is enabled:
 
 | Subnet                        | CIDR (first /26s of the hub range) |
 |-------------------------------|------------------------------------|
-| AzureFirewallSubnet           | `cidrsubnet(hub, 4, 0)` → 10.x.0.0/26  |
-| AzureFirewallManagementSubnet | `cidrsubnet(hub, 4, 1)` → 10.x.0.64/26 |
+| AzureFirewallSubnet           | `cidrsubnet(hub, 4, 0)` → 10.x.y.0/26  |
+| AzureFirewallManagementSubnet | `cidrsubnet(hub, 4, 1)` → 10.x.y.64/26 |
 
-The rest of the /22 is spare for future hub services (Bastion, VPN gateway,
-DNS Private Resolver, ...).
+Firewall private IPs are deterministic - the first host (.4) of
+AzureFirewallSubnet: dev 10.0.0.4 (westus3) / 10.1.0.4 (eastus2), prod
+10.0.4.4 / 10.1.4.4. The rest of each /22 is spare for future hub services
+(Bastion, VPN gateway, DNS Private Resolver, ...).
 
 ## Cluster-internal ranges (identical in every cluster)
 

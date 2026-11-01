@@ -1,6 +1,6 @@
 # 003 - Network platform: AVNM + IPAM + global mesh (stamp model)
 
-- **Status**: in-progress (code + docs done, offline-validated; live verification pending)
+- **Status**: in-progress (code + docs done, offline-validated; live verification pending). Superseded in scope by plan 004 (one AVNM at the top MG, multi-subscription) - the ADR-009 "per-env AVNM at subscription scope" adaptation is gone; verification steps 5-6 still apply.
 - **Date**: 2026-11-01
 - **Commits**: (this branch: feat/avnm-ipam-mesh)
 - **Source**: Claude Docs "AKS Stamp Network Plan: AVNM + IPAM"

@@ -36,8 +36,11 @@ automatically. Verified end-to-end 2026-07-21.
 \** Off by default (`enable_avnm = false`). AVNM bills ~$0.10/hr per
 *managed* VNet - one that has a deployed configuration, i.e. each stamp VNet
 in the mesh, not the hubs - plus a small fee per active IP in an IPAM pool
-(every node NIC). Confirm current rates on the pricing page; the figures
-above are the published model, not a quote. See docs/network-platform.md.
+(every node NIC). The AVNM instance, empty pools, management groups and
+extra subscriptions cost nothing, so the landing-zone layout
+(docs/subscriptions.md) adds no fixed cost. Confirm current rates on the
+pricing page; the figures above are the published model, not a quote. See
+docs/network-platform.md.
 
 Multiply by regions you actually apply. The repo defines dev+prod × 2 regions,
 but nothing forces you to apply more than `dev/westus3`.

@@ -45,19 +45,17 @@ locals {
   firewall_sku_tier = "Basic"
 
   # --- Network platform: AVNM + IPAM + global mesh (docs/network-platform.md) ---
-  # Azure Virtual Network Manager bills per managed VNet (~$0.10/hr for each
-  # VNet with a deployed configuration) plus a small per-active-IP IPAM fee,
-  # so dev leaves it off: each spoke gets a static /22 from region.hcl and
-  # regions stay isolated (or transit via hub firewalls, enable_firewall).
-  # Set true to allocate every spoke /22 from an IPAM pool and join all dev
-  # spokes in one global mesh (direct cross-region cluster-to-cluster, no
-  # firewall needed for east-west).
+  # Opt this environment into the tenant-wide AVNM (live/platform/network):
+  # every spoke /22 is allocated from this env's IPAM pool and all its
+  # spokes join one global mesh (direct cross-region cluster-to-cluster, no
+  # firewall needed for east-west), with the other environments' pools
+  # denied inbound by security admin rules. AVNM bills per managed VNet
+  # (~$0.10/hr each) plus a small per-active-IP IPAM fee, so dev leaves it
+  # off: each spoke gets a static /22 from region.hcl and regions stay
+  # isolated (or transit via hub firewalls, enable_firewall).
   enable_avnm         = false
-  avnm_location       = "westus3"
   regions             = ["westus3", "eastus2"] # folders here holding a region.hcl
   stamp_prefix_length = 22
-  # Other environments' stamp pools to deny inbound at the AVNM layer.
-  security_admin_deny_inbound_from = []
 
   # --- Optional components (all the expensive telemetry/security is OFF) ---
   enable_acr                = true # Basic, ~$5/mo

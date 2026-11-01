@@ -1,8 +1,10 @@
-# Membership is dynamic: an Azure Policy in Microsoft.Network.Data mode adds
-# every VNet tagged role=aks-stamp + env=<this env> to the group. A new stamp
-# joins the mesh and inherits the security admin rules the moment its tagged
-# VNet exists - no per-stamp AVNM work, and no dependency from this state on
-# any stamp state (which would be circular: stamps depend on the pool IDs).
+# One network group per environment. Membership is dynamic: an Azure Policy
+# in Microsoft.Network.Data mode, assigned at the management group (so it
+# covers every landing-zone subscription), adds every VNet tagged
+# role=aks-stamp + env=<env> to that environment's group. A new stamp joins
+# its mesh and inherits the security admin rules the moment its tagged VNet
+# exists - no per-stamp AVNM work, and no dependency from this state on any
+# stamp state (which would be circular: stamps depend on the pool IDs).
 #
 # Caveat (from the AVNM docs): these policies do not follow the normal policy
 # evaluation cycle - membership updates on VNet create and tag change - and
@@ -10,44 +12,55 @@
 # are removed in the same change.
 
 resource "azurerm_network_manager_network_group" "stamps" {
-  count = local.n
+  for_each = local.envs
 
-  name               = "ng-stamps-${var.environment}"
+  name               = "ng-stamps-${each.key}"
   network_manager_id = azurerm_network_manager.this[0].id
-  description        = "AKS stamp VNets of ${var.environment} (dynamic membership by tags role=aks-stamp, env=${var.environment})."
+  description        = "AKS stamp VNets of ${each.key} (dynamic membership by tags role=aks-stamp, env=${each.key})."
 }
 
 resource "azurerm_policy_definition" "ng_stamps" {
-  count = local.n
+  for_each = local.envs
 
-  name         = "avnm-ng-stamps-${var.environment}"
-  policy_type  = "Custom"
-  mode         = "Microsoft.Network.Data"
-  display_name = "AVNM membership: AKS stamps (${var.environment})"
-  description  = "Adds virtual networks tagged role=aks-stamp and env=${var.environment} to the ${var.environment} stamp network group."
+  name                = "avnm-ng-stamps-${each.key}"
+  policy_type         = "Custom"
+  mode                = "Microsoft.Network.Data"
+  display_name        = "AVNM membership: AKS stamps (${each.key})"
+  description         = "Adds virtual networks tagged role=aks-stamp and env=${each.key} to the ${each.key} stamp network group."
+  management_group_id = var.management_group_id
 
   policy_rule = jsonencode({
     if = {
       allOf = [
         { field = "type", equals = "Microsoft.Network/virtualNetworks" },
         { field = "tags['role']", equals = "aks-stamp" },
-        { field = "tags['env']", equals = var.environment },
+        { field = "tags['env']", equals = each.key },
       ]
     }
     then = {
       effect = "addToNetworkGroup"
       details = {
-        networkGroupId = azurerm_network_manager_network_group.stamps[0].id
+        networkGroupId = azurerm_network_manager_network_group.stamps[each.key].id
       }
     }
   })
 }
 
-resource "azurerm_subscription_policy_assignment" "ng_stamps" {
-  count = local.n
+# Assignment names at management-group scope are capped at 24 characters.
+resource "azurerm_management_group_policy_assignment" "ng_stamps" {
+  for_each = local.scope_is_mg ? local.envs : {}
 
-  name                 = "avnm-ng-stamps-${var.environment}"
-  display_name         = "AVNM membership: AKS stamps (${var.environment})"
+  name                 = "avnm-ng-stamps-${each.key}"
+  display_name         = "AVNM membership: AKS stamps (${each.key})"
+  management_group_id  = var.management_group_id
+  policy_definition_id = azurerm_policy_definition.ng_stamps[each.key].id
+}
+
+resource "azurerm_subscription_policy_assignment" "ng_stamps" {
+  for_each = local.scope_is_mg ? {} : local.envs
+
+  name                 = "avnm-ng-stamps-${each.key}"
+  display_name         = "AVNM membership: AKS stamps (${each.key})"
   subscription_id      = data.azurerm_subscription.current.id
-  policy_definition_id = azurerm_policy_definition.ng_stamps[0].id
+  policy_definition_id = azurerm_policy_definition.ng_stamps[each.key].id
 }

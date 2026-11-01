@@ -4,6 +4,12 @@
 # in-cluster with network policies keyed on each stamp's unique node subnets
 # (see the node_subnet_prefixes output of modules/aks-spoke).
 #
+# One configuration, one rule collection per environment (applied to that
+# environment's network group):
+#   100 allow-from-hubs                 the environment's hub ranges, every region
+#   200 deny-inbound-from-other-envs    every other environment's stamp pools
+#   300 deny-internet-high-risk-ports   Internet service tag on 22/3389/445/1433
+#
 # Not implemented on purpose: a "deny stamp-to-stamp on 22/10250" rule. With
 # prefix-based sources it would also deny a cluster's own node-to-node
 # kubelet traffic (metrics-server, Prometheus scrape pods SNAT to node IPs),
@@ -13,34 +19,34 @@
 resource "azurerm_network_manager_security_admin_configuration" "stamps" {
   count = local.n
 
-  name               = "sac-stamps-${var.environment}"
+  name               = "sac-stamps"
   network_manager_id = azurerm_network_manager.this[0].id
-  description        = "Guardrails for ${var.environment} AKS stamp VNets."
+  description        = "Guardrails for AKS stamp VNets, one rule collection per environment."
 }
 
 resource "azurerm_network_manager_admin_rule_collection" "stamps" {
-  count = local.n
+  for_each = local.envs
 
-  name                            = "rc-stamps"
+  name                            = "rc-stamps-${each.key}"
   security_admin_configuration_id = azurerm_network_manager_security_admin_configuration.stamps[0].id
-  network_group_ids               = [azurerm_network_manager_network_group.stamps[0].id]
+  network_group_ids               = [azurerm_network_manager_network_group.stamps[each.key].id]
 }
 
 # 100: hub ranges (firewall, DNS resolver, monitoring) always reach stamps,
 # whatever a stamp's NSGs say.
 resource "azurerm_network_manager_admin_rule" "allow_from_hubs" {
-  count = local.n
+  for_each = local.envs
 
   name                     = "allow-from-hubs"
-  admin_rule_collection_id = azurerm_network_manager_admin_rule_collection.stamps[0].id
-  description              = "Always allow inbound from the hub VNets of every region."
+  admin_rule_collection_id = azurerm_network_manager_admin_rule_collection.stamps[each.key].id
+  description              = "Always allow inbound from the ${each.key} hub VNets of every region."
   action                   = "AlwaysAllow"
   direction                = "Inbound"
   priority                 = 100
   protocol                 = "Any"
 
   dynamic "source" {
-    for_each = local.hub_prefixes
+    for_each = local.hub_prefixes[each.key]
     content {
       address_prefix_type = "IPPrefix"
       address_prefix      = source.value
@@ -48,14 +54,16 @@ resource "azurerm_network_manager_admin_rule" "allow_from_hubs" {
   }
 }
 
-# 200: backstop between environments. Separate meshes already leave prod and
-# nonprod without a route to each other; this catches a misconfigured
-# peering or on-prem route.
+# 200: backstop between environments. Separate meshes already leave them
+# without a route to each other; this catches a misconfigured peering or
+# on-prem route. Derived, not configured: every other environment's pools,
+# whether or not that environment is in AVNM (static stamps use the same
+# ranges).
 resource "azurerm_network_manager_admin_rule" "deny_cross_env" {
-  count = var.enabled && length(var.security_admin_deny_inbound_from) > 0 ? 1 : 0
+  for_each = { for env in keys(local.envs) : env => env if length(local.other_env_prefixes[env]) > 0 }
 
   name                     = "deny-inbound-from-other-envs"
-  admin_rule_collection_id = azurerm_network_manager_admin_rule_collection.stamps[0].id
+  admin_rule_collection_id = azurerm_network_manager_admin_rule_collection.stamps[each.key].id
   description              = "Deny inbound from other environments' stamp pools."
   action                   = "Deny"
   direction                = "Inbound"
@@ -63,7 +71,7 @@ resource "azurerm_network_manager_admin_rule" "deny_cross_env" {
   protocol                 = "Any"
 
   dynamic "source" {
-    for_each = var.security_admin_deny_inbound_from
+    for_each = local.other_env_prefixes[each.key]
     content {
       address_prefix_type = "IPPrefix"
       address_prefix      = source.value
@@ -74,10 +82,10 @@ resource "azurerm_network_manager_admin_rule" "deny_cross_env" {
 # 300: nothing from the Internet on management/database ports, even if a
 # stamp exposes a public load balancer on them by mistake.
 resource "azurerm_network_manager_admin_rule" "deny_internet_high_risk_ports" {
-  count = local.n
+  for_each = local.envs
 
   name                     = "deny-internet-high-risk-ports"
-  admin_rule_collection_id = azurerm_network_manager_admin_rule_collection.stamps[0].id
+  admin_rule_collection_id = azurerm_network_manager_admin_rule_collection.stamps[each.key].id
   description              = "Deny inbound from Internet on ${join(",", var.high_risk_inbound_ports)}."
   action                   = "Deny"
   direction                = "Inbound"
@@ -103,8 +111,9 @@ resource "azurerm_network_manager_deployment" "security_admin" {
 
   triggers = {
     rules = sha256(jsonencode({
+      envs  = sort(keys(local.envs))
       hubs  = local.hub_prefixes
-      deny  = var.security_admin_deny_inbound_from
+      deny  = local.other_env_prefixes
       ports = var.high_risk_inbound_ports
     }))
   }

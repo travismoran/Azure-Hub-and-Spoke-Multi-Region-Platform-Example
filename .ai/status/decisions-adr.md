@@ -115,6 +115,31 @@ source plan's open question). Node subnets are unique per stamp →
 `node_subnet_prefixes` output is the caller identity for in-cluster policy.
 Trade-off: switching a live spoke between modes recreates VNet + cluster.
 
+## ADR-012: Landing-zone layout - subscription per role, management groups, one AVNM at the top MG
+
+2026-11-01 · Accepted (supersedes the "per-env AVNM at subscription scope" half of ADR-009)
+
+The enterprise plan's real scope costs nothing extra (MGs/subscriptions are
+free; AVNM bills per managed VNet regardless of scope), so the repo now has
+it: `management` (existing sub, holds state), `connectivity` (all hubs +
+AVNM + IPAM), `dev`/`prod` (stamps) under `mg-<prefix>` → `-platform` /
+`-landingzones` → `-<env>`. One `modules/platform-network` instance at
+`live/platform/network`, scoped to the top MG, with /12 root pools per
+region split into /16 env pools (nested IPAM pools), MG-scoped membership
+policies, one mesh per env, and rule 200 derived from the other envs'
+pools. Subscription placement is a path→env-var map in `live/root.hcl`
+(hubs and platform → connectivity; stamps → `TG_SUBSCRIPTION_<ENV>`), with
+`ARM_SUBSCRIPTION_ID` as the fallback so single-subscription use is
+unchanged; `enable_management_groups = false` keeps the AVNM at
+subscription scope for tenants where root elevation is impossible.
+Subscriptions are created in the portal, not vended: the billing account is
+MOSP (personal Pay-As-You-Go), which the subscription alias API does not
+accept; a vending module would be dead code here. Renumbered so the pool
+hierarchy is real: hubs 10.0/10.1.0.0/16 per region, stamp roots
+10.16/10.32.0.0/12 (nothing was deployed, so free). Hub↔spoke peering
+crosses subscriptions - fine because the AVM peering submodule uses full
+resource IDs (azapi) for both directions.
+
 ## ADR-011: Cilium dataplane follows network_policy
 
 2026-11-01 · Accepted
