@@ -30,3 +30,4 @@ terragrunt-debug.tfvars.json
 .idea/
 *.swp
 .DS_Store
+.env.bak*
