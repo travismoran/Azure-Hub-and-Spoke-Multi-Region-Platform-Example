@@ -3,8 +3,10 @@ locals {
   location     = "westus3"
   region_short = "wus3"
 
-  hub_address_space       = ["10.110.0.0/22"]
-  spoke_address_space     = ["10.111.0.0/16"]
-  nodes_subnet_prefix     = "10.111.0.0/20"
-  endpoints_subnet_prefix = "10.111.16.0/24"
+  hub_address_space = ["10.110.0.0/22"]
+
+  # Pool every AKS stamp in this env/region takes its /22 from: allocated by
+  # AVNM IPAM when enable_avnm is on, otherwise the first /22 is used
+  # statically. 64 stamps per /16.
+  stamp_pool_prefix = "10.111.0.0/16"
 }

@@ -3,6 +3,8 @@
 Public example repo: DRY Terraform + Terragrunt AKS platform, hub-and-spoke,
 dev/prod × westus3/eastus2, cost-minimized defaults. AVM modules composed
 directly (NOT avm-ptn-aks-enterprise - see .ai/status/decisions-adr.md).
+Spokes are uniform /22 "stamps"; `enable_avnm` adds AVNM + IPAM + a global
+mesh per environment via `modules/platform-network` (docs/network-platform.md).
 
 ## Session pickup
 
@@ -27,8 +29,9 @@ ADRs in `.ai/status/`. Keep all of these updated as work progresses.
 
 ```bash
 source .env                                   # required before any tg command
-cd live/dev/<region> && terragrunt run --all -- plan     # plan a region
-terragrunt run --all -- apply -input=false               # apply (hub first, auto)
+cd live/dev && terragrunt run --all -- plan              # plan an environment
+terragrunt run --all -- apply -input=false               # apply (platform-network → hub → spoke)
+cd live/dev/<region> && terragrunt run --all --queue-include-external -- apply   # one region
 cd live && terragrunt run --all -- validate              # offline full-graph check
 terraform fmt -recursive && terragrunt hcl fmt           # format
 bash githooks/pre-push                                   # manual secret sweep

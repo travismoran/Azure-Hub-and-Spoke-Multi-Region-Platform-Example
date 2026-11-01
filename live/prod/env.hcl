@@ -37,6 +37,15 @@ locals {
   enable_firewall   = true
   firewall_sku_tier = "Standard"
 
+  # --- Network platform: AVNM + IPAM + global mesh (docs/network-platform.md) ---
+  enable_avnm         = true
+  avnm_location       = "westus3"
+  regions             = ["westus3", "eastus2"]
+  stamp_prefix_length = 22
+  # Backstop: nonprod stamp pools (live/dev/*/region.hcl) can never reach
+  # prod stamps, whatever peerings or on-prem routes exist.
+  security_admin_deny_inbound_from = ["10.11.0.0/16", "10.21.0.0/16"]
+
   # --- Optional components ---
   enable_acr                = true
   acr_sku                   = "Premium"

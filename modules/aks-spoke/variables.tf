@@ -28,18 +28,40 @@ variable "name_prefix" {
 # ---------------------------------------------------------------------------
 
 variable "spoke_address_space" {
-  description = "Address space of the spoke virtual network."
+  description = <<DESC
+Static address space of the stamp VNet, used only when ipam_pool_id is null.
+Must be one /<stamp_prefix_length> (a /22 by default): the subnet layout is
+carved from it - see docs/ipam.md.
+DESC
   type        = list(string)
+
+  validation {
+    condition     = length(var.spoke_address_space) == 1 && endswith(var.spoke_address_space[0], "/${var.stamp_prefix_length}")
+    error_message = "spoke_address_space must be exactly one CIDR of length stamp_prefix_length (default /22)."
+  }
 }
 
-variable "nodes_subnet_prefix" {
-  description = "CIDR of the AKS node subnet (inside the spoke address space)."
+variable "ipam_pool_id" {
+  description = <<DESC
+AVNM IPAM pool to allocate the stamp VNet from (output ipam_pool_ids of
+modules/platform-network). When set, the VNet asks for a /<stamp_prefix_length>
+and spoke_address_space is ignored; IPAM guarantees it overlaps nothing else
+in the pool. null (the default, and whenever enable_avnm is off) means static
+addressing. Changing between the two recreates the VNet.
+DESC
   type        = string
+  default     = null
 }
 
-variable "endpoints_subnet_prefix" {
-  description = "CIDR of the private-endpoints subnet (inside the spoke address space)."
-  type        = string
+variable "stamp_prefix_length" {
+  description = "Prefix length of the stamp VNet. /22 (1,024 addresses) fits ~370 nodes; use /21 for larger stamp classes. The subnet layout scales with it."
+  type        = number
+  default     = 22
+
+  validation {
+    condition     = var.stamp_prefix_length >= 20 && var.stamp_prefix_length <= 23
+    error_message = "stamp_prefix_length must be between 20 and 23."
+  }
 }
 
 variable "hub_vnet_id" {
@@ -65,7 +87,7 @@ DESC
 }
 
 variable "firewall_routed_cidrs" {
-  description = "Destination CIDRs routed to the hub firewall when firewall_private_ip is set."
+  description = "Destination CIDRs routed to the hub firewall when firewall_private_ip is set. Pass [] when the AVNM mesh carries east-west traffic (a UDR would override the mesh route)."
   type        = list(string)
   default     = ["10.0.0.0/8"]
 }
@@ -100,7 +122,7 @@ variable "outbound_type" {
 }
 
 variable "network_policy" {
-  description = "Kubernetes network policy engine (azure, calico, cilium) or null for none (cheapest, no policy enforcement overhead)."
+  description = "Kubernetes network policy engine (azure, calico, cilium) or null for none (cheapest, no policy enforcement overhead). cilium also switches the dataplane to Cilium, as Azure requires."
   type        = string
   default     = null
 }

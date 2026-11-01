@@ -33,6 +33,10 @@ flowchart TB
 
 All address ranges are globally non-overlapping (see [ipam.md](ipam.md)), so
 hubs can later be peered to each other or to on-prem without renumbering.
+Each spoke is a uniform /22 *stamp* with a fixed subnet layout; with
+`enable_avnm` the /22 is allocated by AVNM IPAM and all stamps of an
+environment are meshed directly across regions - see
+[network-platform.md](network-platform.md).
 
 ## Why not `Azure/terraform-azurerm-avm-ptn-aks-enterprise` directly?
 
@@ -54,6 +58,8 @@ toggle:
 |---|---|---|
 | Hub VNet (+ optional firewall) | `Azure/avm-ptn-hubnetworking/azurerm` | 0.13.2 |
 | Spoke VNet + peering | `Azure/avm-res-network-virtualnetwork/azurerm` | 0.19.0 |
+| Spoke subnets | `…/avm-res-network-virtualnetwork/azurerm//modules/subnet` | 0.19.0 |
+| Network platform (AVNM, IPAM, mesh) | plain `azurerm` resources (no AVM module covers AVNM yet) | - |
 | AKS | `Azure/avm-res-containerservice-managedcluster/azurerm` | 0.6.7 |
 | ACR | `Azure/avm-res-containerregistry-registry/azurerm` | 0.5.1 |
 | Log Analytics | `Azure/avm-res-operationalinsights-workspace/azurerm` | 0.5.1 |
@@ -64,12 +70,14 @@ toggle:
 live/
 ├── root.hcl            backend + provider generation (env-var driven)
 ├── _envcommon/
-│   ├── hub.hcl         module source, inputs assembled from env+region
-│   └── aks-spoke.hcl   ... plus dependency "hub" with mock_outputs
-├── <env>/env.hcl       all feature toggles and sizing for the environment
+│   ├── hub.hcl                module source, inputs assembled from env+region
+│   ├── aks-spoke.hcl          ... plus dependencies "hub" and "platform_network" with mock_outputs
+│   └── platform-network.hcl   reads every region.hcl listed in env.hcl's `regions`
+├── <env>/env.hcl              all feature toggles and sizing for the environment
+├── <env>/platform-network/    one unit per environment (AVNM, pools, mesh)
 └── <env>/<region>/
-    ├── region.hcl      location + CIDR assignments
-    └── <unit>/terragrunt.hcl   two include blocks, nothing else
+    ├── region.hcl             location + CIDR assignments
+    └── <unit>/terragrunt.hcl  two include blocks, nothing else
 ```
 
 - **Leaf files are identical 8-line stubs.** Adding a region = one folder,
@@ -77,8 +85,11 @@ live/
 - `_envcommon/*.hcl` reads the nearest `env.hcl`/`region.hcl` itself via
   `read_terragrunt_config(find_in_parent_folders(...))`, so leaves carry no
   wiring.
-- The spoke declares `dependency "hub"` with `mock_outputs`, so
-  `init`/`validate`/`plan` work before the hub exists (fresh clones, CI).
+- The spoke declares `dependency "hub"` and `dependency "platform_network"`
+  with `mock_outputs`, so `init`/`validate`/`plan` work before either exists
+  (fresh clones, CI). `platform-network` sits one level up, so it is an
+  *external* dependency of a region folder: apply from `live/<env>` (or
+  pass `--queue-include-external`).
 - When `TG_STATE_*` env vars are unset, `root.hcl` falls back from the
   `azurerm` backend to a throwaway local backend, letting the entire graph
   validate offline with zero Azure access.
@@ -89,10 +100,14 @@ live/
 ## Cross-stack contract
 
 `modules/hub` outputs (`vnet_id`, `vnet_name`, `resource_group_name`,
-`firewall_private_ip`, `location`) are the only interface the spoke consumes.
-The spoke creates **both** peering directions via the vnet module's
+`firewall_private_ip`, `location`) and `modules/platform-network` outputs
+(`ipam_pool_ids`, `ipam_pool_prefixes`, `network_group_id`,
+`network_manager_id`) are the only interfaces the spoke consumes. The spoke
+creates **both** peering directions via the vnet module's
 `create_reverse_peering`, so adding or destroying a spoke never touches the
-hub's state.
+hub's state; and the platform never references a spoke - network group
+membership is by tag through Azure Policy - so adding a stamp never touches
+the platform's state either.
 
 ## Hub-to-hub transit (cross-region cluster-to-cluster)
 
@@ -126,6 +141,11 @@ The pieces, all toggled by `enable_firewall` in `env.hcl`:
   more-specific system routes keep intra-VNet and spoke↔hub traffic direct,
   and internet egress stays on the cluster load balancer (`outbound_type`
   is untouched).
+
+When `enable_avnm` is on, the spoke's 10/8 route is **not** created: the
+AVNM connected-group route carries east-west traffic directly and a UDR
+would override it. See [network-platform.md](network-platform.md) for the
+side-by-side.
 
 Two conventions worth knowing:
 

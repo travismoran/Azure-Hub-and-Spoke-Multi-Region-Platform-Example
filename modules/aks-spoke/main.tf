@@ -3,7 +3,36 @@ locals {
   acr_name            = "cr${var.name_prefix}${var.environment}${replace(var.region_short, "-", "")}"
   cluster_name        = "aks-${var.name_prefix}-${var.environment}-${var.region_short}"
   resource_group_name = "rg-aks-${var.environment}-${var.region_short}"
+  stamp_id            = "${var.name_prefix}-${var.environment}-${var.region_short}"
   vnet_name           = "vnet-aks-${var.environment}-${var.region_short}"
+
+  use_ipam = var.ipam_pool_id != null
+
+  # The VNet prefix is either the static one from region.hcl or whatever AVNM
+  # IPAM allocated at apply time (then it is "known after apply" on the first
+  # plan of a new stamp - expected).
+  vnet_cidr = module.spoke_vnet.address_spaces[0]
+
+  # Fixed stamp layout, relative to the stamp prefix (shown for a /22; a /21
+  # stamp doubles every subnet). Offsets not created here are reserved:
+  #   .0.128/28 API server VNet integration, .0.192/27 Private Link Service,
+  #   .0.224/27 spare, .3.0/24 App Gateway for Containers / second user pool.
+  # See docs/ipam.md.
+  subnets = {
+    aks-system = { prefix = cidrsubnet(local.vnet_cidr, 3, 0), nodes = true }  # .0.0/25   system pool
+    ilb        = { prefix = cidrsubnet(local.vnet_cidr, 5, 5), nodes = false } # .0.160/27 internal LB frontends other stamps call
+    aks-user   = { prefix = cidrsubnet(local.vnet_cidr, 2, 1), nodes = true }  # .1.0/24   user pools
+    pe         = { prefix = cidrsubnet(local.vnet_cidr, 2, 2), nodes = false } # .2.0/24   private endpoints
+  }
+
+  # These four tags are the contract with the network platform: the AVNM
+  # network group's membership policy matches on role + env.
+  vnet_tags = merge(var.tags, {
+    role       = "aks-stamp"
+    env        = var.environment
+    unit       = var.name_prefix
+    "stamp-id" = local.stamp_id
+  })
 }
 
 resource "azurerm_resource_group" "spoke" {
@@ -21,6 +50,10 @@ resource "azurerm_route_table" "nodes" {
   tags                = var.tags
 }
 
+# Never add routes for other stamps' prefixes when the AVNM mesh is on: a
+# matching or more specific UDR overrides the connected-group route and
+# silently pulls east-west traffic off the mesh. _envcommon passes an empty
+# list in that case.
 resource "azurerm_route" "via_firewall" {
   for_each = var.firewall_private_ip != null ? toset(var.firewall_routed_cidrs) : toset([])
 
@@ -32,6 +65,9 @@ resource "azurerm_route" "via_firewall" {
   next_hop_in_ip_address = var.firewall_private_ip
 }
 
+# A VNet uses either IPAM pools or a static address_space, never both
+# (CannotMixAddressPrefixAndPoolInPayload). Subnets are created separately
+# below because their prefixes derive from this module's output.
 module "spoke_vnet" {
   source  = "Azure/avm-res-network-virtualnetwork/azurerm"
   version = "0.19.0"
@@ -39,21 +75,14 @@ module "spoke_vnet" {
   name             = local.vnet_name
   parent_id        = azurerm_resource_group.spoke.id
   location         = var.location
-  address_space    = var.spoke_address_space
   enable_telemetry = var.enable_telemetry
-  tags             = var.tags
+  tags             = local.vnet_tags
 
-  subnets = {
-    aks_nodes = {
-      name             = "snet-aks-nodes"
-      address_prefixes = [var.nodes_subnet_prefix]
-      route_table      = var.firewall_private_ip != null ? { id = azurerm_route_table.nodes[0].id } : null
-    }
-    endpoints = {
-      name             = "snet-endpoints"
-      address_prefixes = [var.endpoints_subnet_prefix]
-    }
-  }
+  address_space = local.use_ipam ? null : var.spoke_address_space
+  ipam_pools = local.use_ipam ? [{
+    id            = var.ipam_pool_id
+    prefix_length = var.stamp_prefix_length
+  }] : null
 
   # create_reverse_peering also creates the hub->spoke direction, so adding a
   # spoke never requires touching the hub's state.
@@ -68,4 +97,19 @@ module "spoke_vnet" {
       reverse_allow_gateway_transit      = true
     }
   }
+}
+
+# Static subnets inside an IPAM-allocated VNet is a supported mix (AVM
+# virtualnetwork subnet module README: "IPAM VNet + Traditional Subnet").
+module "subnet" {
+  source  = "Azure/avm-res-network-virtualnetwork/azurerm//modules/subnet"
+  version = "0.19.0"
+
+  for_each = local.subnets
+
+  name                            = "snet-${each.key}"
+  parent_id                       = module.spoke_vnet.resource_id
+  address_prefixes                = [each.value.prefix]
+  default_outbound_access_enabled = false
+  route_table                     = each.value.nodes && var.firewall_private_ip != null ? { id = azurerm_route_table.nodes[0].id } : null
 }

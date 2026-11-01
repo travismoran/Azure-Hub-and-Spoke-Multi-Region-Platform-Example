@@ -1,6 +1,6 @@
 # ACTIVE SESSION - read me first
 
-Last updated: 2026-07-22 (after full teardown)
+Last updated: 2026-11-01 (plan 003 implemented offline, not applied)
 
 ## 🚨 Live infrastructure & money meter
 
@@ -46,8 +46,20 @@ declares the hub↔hub peering inputs - inert and free without firewalls.
   kubelogin, gitleaks 8.24.3.
 - Security tooling: `./scripts/setup-dev.sh` - already run on this machine.
 
+## In flight: plan 003 (branch feat/avnm-ipam-mesh)
+
+AVNM + IPAM + global mesh "stamp" model from the Claude Docs plan, adapted
+per ADR-009..011. New unit `live/<env>/platform-network` is a dependency of
+every spoke → **apply from `live/<env>`**, not a region folder (or
+`--queue-include-external`). Spoke VNets are now /22 stamps (static first
+/22 of the old /16 in dev; IPAM-allocated in prod). Everything validates
+offline (10 units); nothing applied yet. Validate before apply:
+`cd live/dev && terragrunt run --all -- plan` with .env sourced.
+
 ## Immediate next steps
 
 See .ai/status/task-backlog.md. Top of stack:
-1. Set the 5 GitHub repo variables to activate plan.yml (docs/github-oidc-setup.md).
-2. Verify ci.yml is green on GitHub.
+1. Live-verify plan 003 in dev with `enable_avnm = true` (~$150/mo while up:
+   2 managed VNets + nodes); record evidence; merge to main.
+2. Set the 5 GitHub repo variables to activate plan.yml (docs/github-oidc-setup.md).
+3. Verify ci.yml is green on GitHub.

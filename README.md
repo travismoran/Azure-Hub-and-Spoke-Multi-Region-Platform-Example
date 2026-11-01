@@ -27,6 +27,12 @@ toggle, defaulting to off**. Details in
 - **Cost toggles** for firewall, ACR SKU, Log Analytics, container insights,
   Defender, Azure Policy, cluster tier, private cluster
   ([docs/costs.md](docs/costs.md))
+- **Stamp networking, two ways**: every AKS spoke is a uniform /22 "stamp"
+  with a fixed subnet layout. Turn on `enable_avnm` and Azure Virtual
+  Network Manager hands each stamp its /22 from an IPAM pool, puts it in a
+  tag-driven network group, meshes every stamp of the environment across
+  regions (direct cluster-to-cluster, no hub hop) and applies security admin
+  guardrails ([docs/network-platform.md](docs/network-platform.md))
 - **Zero secrets**: `az login` / GitHub OIDC auth, Entra RBAC state access
   (no storage keys), managed identities everywhere, gitleaks in CI and
   pre-commit
@@ -38,13 +44,15 @@ toggle, defaulting to off**. Details in
 
 ```
 modules/
-├── hub/          wraps avm-ptn-hubnetworking (firewall optional, off by default)
-└── aks-spoke/    spoke vnet + hub peering + AKS + optional ACR/Log Analytics
+├── hub/                wraps avm-ptn-hubnetworking (firewall optional, off by default)
+├── aks-spoke/          stamp vnet (/22, static or IPAM) + hub peering + AKS + optional ACR/LAW
+└── platform-network/   AVNM + IPAM pools + network group + global mesh + security admin
 live/
 ├── root.hcl                     backend + provider generation (env-var driven)
-├── _envcommon/{hub,aks-spoke}.hcl   shared unit config + dependency wiring
+├── _envcommon/{hub,aks-spoke,platform-network}.hcl   shared unit config + dependency wiring
 ├── dev/                         cheapest-possible settings
 │   ├── env.hcl
+│   ├── platform-network/        one per environment (empty when enable_avnm = false)
 │   ├── westus3/{region.hcl, hub/, aks-spoke/}
 │   └── eastus2/{region.hcl, hub/, aks-spoke/}
 └── prod/                        every toggle on (plan-only demonstration)
@@ -81,10 +89,11 @@ az provider register --namespace Microsoft.ContainerRegistry
 az provider register --namespace Microsoft.Network
 az provider register --namespace Microsoft.OperationalInsights
 
-# 4. Plan and apply one region of dev (hub first via the dependency graph)
-cd live/dev/westus3
+# 4. Plan and apply dev (platform-network → hubs → spokes via the dependency graph)
+cd live/dev
 terragrunt run --all -- plan
 terragrunt run --all -- apply
+#    One region only: cd live/dev/westus3 && terragrunt run --all --queue-include-external -- apply
 
 # 5. Connect
 az aks get-credentials -g rg-aks-dev-wus3 -n aks-demo-dev-wus3
@@ -92,6 +101,9 @@ kubectl get nodes
 ```
 
 Tear down with `terragrunt run --all -- destroy` in the same directory.
+(`platform-network` is an external dependency of every spoke, which is why
+applies run from the environment folder; validation works from anywhere
+because it is mocked.)
 
 No subscription yet? Everything still validates offline:
 
@@ -107,6 +119,7 @@ Set per environment in `live/<env>/env.hcl`:
 |---|---|---|---|
 | `aks_sku_tier` | `Free` | `Standard` | $73/mo/cluster |
 | `enable_firewall` | `false`* | `true` | $300-900+/mo |
+| `enable_avnm` | `false`** | `true` | ~$73/mo per stamp VNet + IPAM per IP |
 | `private_cluster_enabled` | `false` | `true` | needs jumpbox/Bastion to reach |
 | `acr_sku` | `Basic` | `Premium` | $5 vs $50/mo |
 | `enable_log_analytics` | `false` | `true` | ~$2.76/GB ingested |
@@ -121,6 +134,11 @@ Set per environment in `live/<env>/env.hcl`:
 (Firewall Basic per hub, UDRs, transit rules - all activate automatically;
 see [docs/architecture.md](docs/architecture.md)). Verified end-to-end;
 evidence in `.ai/test-results/`.
+
+\** flip to `true` for the AVNM path instead: IPAM-allocated stamp /22s, one
+global mesh per environment (direct cross-region cluster-to-cluster with no
+firewall in the path) and security admin guardrails; see
+[docs/network-platform.md](docs/network-platform.md). Not yet verified live.
 
 ## CI
 

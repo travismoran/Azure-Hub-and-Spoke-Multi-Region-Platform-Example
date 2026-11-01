@@ -7,6 +7,10 @@
 - Hub outputs are a cross-stack contract: any change to
   `modules/hub/outputs.tf` MUST be mirrored in the `mock_outputs` blocks in
   `live/_envcommon/aks-spoke.hcl` and `live/dev/eastus2/hub/terragrunt.hcl`.
+  Same for `modules/platform-network/outputs.tf` → the `platform_network`
+  mock_outputs in `live/_envcommon/aks-spoke.hcl`.
+- `live/<env>/platform-network` is an external dependency of every spoke:
+  applies run from `live/<env>` (or `--queue-include-external`).
 - Plans against real Azure must be reviewed before apply; never apply prod.
 - New AVM module inputs: read the module's actual `variables.tf` at the
   pinned tag first - optional-attr defaults often don't survive conditional

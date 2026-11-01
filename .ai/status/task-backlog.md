@@ -2,10 +2,24 @@
 
 ## Now / decisions pending
 
+- [ ] Plan 003 live verification: apply dev with `enable_avnm = true` (both
+      regions, no firewalls), prove mesh cluster-to-cluster + policy
+      membership + security admin rule; record in .ai/test-results/.
+      Then decide: merge feat/avnm-ipam-mesh → main.
+
 - [ ] Set GitHub repo variables (AZURE_CLIENT_ID/TENANT/SUBSCRIPTION,
       TG_STATE_*) + OIDC app per docs/github-oidc-setup.md → activates plan.yml.
 
 ## Next
+
+- [ ] Plan 003 follow-ups from the source plan: AVNM routing config
+      (UseExisting) once `outbound_type = userDefinedRouting` exists; IPAM
+      "VNet must allocate from approved pool" deny policy (Audit first);
+      central `svc.platform.internal` zone + external-dns + hub DNS Private
+      Resolver (~$180/mo/hub); API server VNet integration subnet; stamp
+      catalog → generated Cilium caller policies.
+- [ ] N-stamp demo: second aks-spoke in dev/westus3 (`stamp-id` differs)
+      to show IPAM handing out 10.11.4.0/22 and auto-joining the mesh.
 
 - [ ] Verify ci.yml went green on GitHub (offline validate path).
 - [ ] Verify AKS 0.6.7 `count_of` vs cluster-autoscaler: does a second apply
@@ -22,6 +36,11 @@
 - [ ] tflint + checkov in CI (kept out initially for signal/noise).
 
 ## Done (this file is append-only history; newest first)
+
+- [x] 2026-11-01 Plan 003 code+docs: modules/platform-network (AVNM, IPAM
+      pools, tag-driven network group, global mesh, security admin), stamp
+      /22 layout via AVM subnet submodule, Cilium dataplane fix, docs.
+      Offline validate 10/10 units. Branch feat/avnm-ipam-mesh.
 
 - [x] 2026-07-25 `enable_firewall` default back to `false` in dev - cheapest
       footprint for forkers; transit demo re-enabled by one toggle.
