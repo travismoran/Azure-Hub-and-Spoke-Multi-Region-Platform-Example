@@ -73,7 +73,7 @@ resource "azurerm_network_manager_ipam_pool" "region" {
   name               = "ipam-${each.key}"
   location           = each.value.location
   network_manager_id = azurerm_network_manager.this[0].id
-  display_name       = "AKS stamps ${each.value.location}"
+  display_name       = "aks-stamps-${each.value.location}"
   description        = "Root address pool for AKS stamp VNets in ${each.value.location}; split per environment."
   address_prefixes   = [each.value.root_pool_prefix]
   tags               = var.tags
@@ -90,7 +90,7 @@ resource "azurerm_network_manager_ipam_pool" "env" {
   location           = var.regions[each.value.region_short].location
   network_manager_id = azurerm_network_manager.this[0].id
   parent_pool_name   = azurerm_network_manager_ipam_pool.region[each.value.region_short].name
-  display_name       = "AKS stamps ${each.value.env} ${var.regions[each.value.region_short].location}"
+  display_name       = "aks-stamps-${each.value.env}-${var.regions[each.value.region_short].location}"
   description        = "Address pool for ${each.value.env} AKS stamp VNets in ${var.regions[each.value.region_short].location}."
   address_prefixes   = [each.value.stamp_pool_prefix]
   tags               = var.tags
