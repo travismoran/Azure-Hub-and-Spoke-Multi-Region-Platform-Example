@@ -94,11 +94,17 @@ multi-subscription layout and remains fully supported.
 
    ```bash
    az rest --method post --url "/providers/Microsoft.Authorization/elevateAccess?api-version=2016-07-01"
+   az logout && az login   # the elevated role is only in a NEW token
    az role assignment create --role Owner --scope / \
      --assignee-object-id "$(az ad signed-in-user show --query id -o tsv)" \
      --assignee-principal-type User
-   az logout && az login
+   az logout && az login   # same again for the Owner role
    ```
+
+   Running the role assignment with the pre-elevation token fails with
+   `AuthorizationFailed ... roleAssignments/write over scope
+   /providers/Microsoft.Authorization/roleAssignments/...` - sign in again
+   and retry.
 
    Owner at `/` is broad; after the first apply it can be reduced to
    `Management Group Contributor` at `/` plus Owner on `mg-<prefix>` (the
