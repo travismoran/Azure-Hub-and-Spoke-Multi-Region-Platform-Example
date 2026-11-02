@@ -9,12 +9,22 @@
 #   100 allow-from-hubs                 the environment's hub ranges, every region
 #   200 deny-inbound-from-other-envs    every other environment's stamp pools
 #   300 deny-internet-high-risk-ports   Internet service tag on 22/3389/445/1433
+# Priorities are unique across the WHOLE configuration (Azure rejects
+# "Priority in Security Rule can't be overlapping" even across collections),
+# so each environment adds a fixed offset: its index in the sorted list of
+# all environments x 10 (dev 100/200/300, prod 110/210/310, ...). Indexing
+# over all environments, not just enabled ones, keeps numbers stable when
+# one is toggled.
 #
 # Not implemented on purpose: a "deny stamp-to-stamp on 22/10250" rule. With
 # prefix-based sources it would also deny a cluster's own node-to-node
 # kubelet traffic (metrics-server, Prometheus scrape pods SNAT to node IPs),
 # since a rule cannot exclude "my own subnet". Do that per stamp with NSGs
 # or Cilium instead.
+
+locals {
+  env_priority_offset = { for env in keys(var.environments) : env => 10 * index(sort(keys(var.environments)), env) }
+}
 
 resource "azurerm_network_manager_security_admin_configuration" "stamps" {
   count = local.n
@@ -42,7 +52,7 @@ resource "azurerm_network_manager_admin_rule" "allow_from_hubs" {
   description              = "Always allow inbound from the ${each.key} hub VNets of every region."
   action                   = "AlwaysAllow"
   direction                = "Inbound"
-  priority                 = 100
+  priority                 = 100 + local.env_priority_offset[each.key]
   protocol                 = "Any"
 
   dynamic "source" {
@@ -67,7 +77,7 @@ resource "azurerm_network_manager_admin_rule" "deny_cross_env" {
   description              = "Deny inbound from other environments' stamp pools."
   action                   = "Deny"
   direction                = "Inbound"
-  priority                 = 200
+  priority                 = 200 + local.env_priority_offset[each.key]
   protocol                 = "Any"
 
   dynamic "source" {
@@ -89,7 +99,7 @@ resource "azurerm_network_manager_admin_rule" "deny_internet_high_risk_ports" {
   description              = "Deny inbound from Internet on ${join(",", var.high_risk_inbound_ports)}."
   action                   = "Deny"
   direction                = "Inbound"
-  priority                 = 300
+  priority                 = 300 + local.env_priority_offset[each.key]
   protocol                 = "Tcp"
   destination_port_ranges  = var.high_risk_inbound_ports
 
