@@ -19,7 +19,7 @@ locals {
   network_policy              = "cilium" # TEMP: plan 003 verification needs an enforced policy engine
 
   system_node_pool = {
-    vm_size              = "Standard_B2s_v2" # 2 vCPU / 8 GiB burstable, ~$60/mo (v1 B-series and AMD sizes are not offered to new PAYG subscriptions in every region)
+    vm_size              = "Standard_D2s_v6" # 2 vCPU / 8 GiB, ~$70/mo. New PAYG subscriptions get 10 vCPU of quota in a few current families only (Dsv6 is one, in both regions); B-series and Dsv5 have none.
     min_count            = 1
     max_count            = 2
     critical_addons_only = true
@@ -28,7 +28,7 @@ locals {
   # One Spot pool for workloads: scales from zero, evictable, 70-90% cheaper.
   user_node_pools = {
     spot = {
-      vm_size   = "Standard_D2s_v5"
+      vm_size   = "Standard_D2s_v6"
       min_count = 0
       max_count = 2
       priority  = "Spot"

@@ -15,8 +15,8 @@ for current numbers.
 | Component | dev default | ~$/mo | prod setting | ~$/mo |
 |---|---|---|---|---|
 | AKS control plane | Free tier | 0 | Standard tier (SLA) | 73 |
-| System node pool | 1× B2s_v2 (burstable) | 60 | 3× D4ds_v5, zoned | 620 |
-| User node pool | 0-2× D2s_v5 **Spot** (scales from 0) | 0-30 | 2-6× D4as_v5 on-demand | 280+ |
+| System node pool | 1× D2s_v6 | 70 | 3× D4ds_v5, zoned | 620 |
+| User node pool | 0-2× D2s_v6 **Spot** (scales from 0) | 0-30 | 2-6× D4as_v5 on-demand | 280+ |
 | Egress | AKS standard LB + 1 public IP | ~8 | Azure Firewall Standard + UDR | 912+ |
 | Hub firewall (transit demo)* | Firewall Basic, `enable_firewall = true` | ~300 | (included above) | - |
 | Network platform (AVNM + IPAM mesh)** | off | 0 | on, 1 managed VNet/region | ~73 + IPAM |
@@ -61,8 +61,10 @@ but nothing forces you to apply more than `dev/westus3`.
 - **Private clusters** are not directly expensive, but reaching them is: a
   jumpbox, Bastion (~$140/mo), or VPN. Dev uses a public API server restricted
   to your IP (`TG_AUTHORIZED_IP`) instead.
-- **Node pools**: burstable B-series for the system pool and Spot for user
-  pools cut compute cost 60-90%. Spot nodes can be evicted at any time - never
+- **Node pools**: the smallest current-generation size for the system pool
+  and Spot for user pools cut compute cost 60-90%. (Burstable B-series would
+  be cheaper still, but new Pay-As-You-Go subscriptions get no quota for
+  them - check `az vm list-usage` before changing sizes.) Spot nodes can be evicted at any time - never
   put system components on them.
 
 ## Cheapskate tips while developing
@@ -70,6 +72,6 @@ but nothing forces you to apply more than `dev/westus3`.
 - `az aks stop --name <cluster> --resource-group <rg>` deallocates all node
   pools overnight; `az aks start` brings the cluster back.
 - The Spot user pool autoscales from **zero** - an idle dev cluster runs on a
-  single B2ms.
+  single D2s_v6.
 - `terragrunt run --all destroy` in `live/dev/<region>` tears everything down;
   state, being external, survives.
