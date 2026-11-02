@@ -51,7 +51,7 @@ The repo now has two ways to get cluster-to-cluster traffic across regions:
 | Cost driver | ~$300/mo per Firewall Basic | ~$0.10/hr per managed VNet + IPAM per active IP |
 | Inspection | Firewall sees every flow | None at layer 3; policy moves in-cluster |
 | Scale | Per-hub route entries per remote spoke | Tag a VNet, done; 250 VNets / 128k addresses per group by default |
-| Verified | Yes, 2026-07-21 (`.ai/test-results/`) | Not yet (needs a live apply with `enable_avnm = true`) |
+| Verified | Yes, 2026-07-21 (`.ai/test-results/`) | Yes, 2026-11-02, cross-subscription (`.ai/test-results/2026-11-02-avnm-mesh-e2e.md`) |
 
 With both on, the firewall still handles anything that is not another
 stamp (there is no 10/8 route any more), and the mesh carries east-west.
@@ -158,8 +158,9 @@ group; `modules/management-groups` does it.
 
 - Confirm the 128,000-address scaling request process and whether
   high-scale mesh still needs `AllowHighScaleConnectedGroup` registration.
-- Does AKS creation succeed with the IPAM-allocated subnet IDs being
-  "known after apply" on the first plan? (Expected yes; verify in the first
-  live apply - plan 003.)
+- ~~Does AKS creation succeed with the IPAM-allocated subnet IDs being
+  "known after apply"?~~ Yes (2026-11-02). Policy-driven membership took
+  ~35 minutes on first use, not "a few"; commit the mesh anyway, members
+  pick it up when they join.
 - Fleet Manager cross-cluster networking as a later service-discovery layer
   normally needs unique pod CIDRs; this repo reuses one overlay CIDR.

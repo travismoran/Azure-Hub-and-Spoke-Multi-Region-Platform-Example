@@ -1,6 +1,6 @@
 # 003 - Network platform: AVNM + IPAM + global mesh (stamp model)
 
-- **Status**: in-progress (code + docs done, offline-validated; live verification pending). Superseded in scope by plan 004 (one AVNM at the top MG, multi-subscription) - the ADR-009 "per-env AVNM at subscription scope" adaptation is gone; verification steps 5-6 still apply.
+- **Status**: complete - live-verified 2026-11-02 in dev across two subscriptions (.ai/test-results/2026-11-02-avnm-mesh-e2e.md); scope widened by plan 004 (one AVNM at the top MG).
 - **Date**: 2026-11-01
 - **Commits**: (this branch: feat/avnm-ipam-mesh)
 - **Source**: Claude Docs "AKS Stamp Network Plan: AVNM + IPAM"
@@ -67,15 +67,9 @@ IP.
        (dev static 10.11.0.0/22 + 10/8 UDR; prod enabled + deny list)
 4. [x] docs: network-platform.md (new), ipam.md (rewrite), architecture,
        costs, README; ADR-009..011
-5. [ ] Live: dev with `enable_avnm=true`, both regions - verify (a) AKS
-       creation with "known after apply" subnet IDs, (b) VNets join
-       `ng-stamps-dev` via policy within minutes, (c) mesh commit succeeds
-       in both regions, (d) curl from wus3 pod to eus2 ILB in snet-ilb
-       with NO firewalls, (e) rule 300 blocks a public LB on :22,
-       (f) `node_subnet_prefixes` output → CiliumNetworkPolicy fromCIDR
-       admits/denies as expected (needs network_policy=cilium in dev for
-       the test).
-6. [ ] Record evidence in .ai/test-results/, flip plan to complete.
+5. [x] Live 2026-11-02: (a)-(f) all pass - see test-results. Membership
+       lag was ~35 min, not "minutes". Five live-only fixes committed.
+6. [x] Evidence in .ai/test-results/2026-11-02-avnm-mesh-e2e.md.
 
 ## Verification
 

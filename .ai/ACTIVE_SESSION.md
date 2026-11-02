@@ -1,14 +1,23 @@
 # ACTIVE SESSION - read me first
 
-Last updated: 2026-11-02 (live/platform applied incl. prod placement; environments not applied)
+Last updated: 2026-11-02 (DEV IS UP with the AVNM mesh - ~$150/mo accruing)
 
 ## 🚨 Live infrastructure & money meter
 
-**Cost meter ≈ $0.** Deployed (2026-11-02, from `live/platform`): the
-management-group tree `mg-demo/*` and, in the connectivity subscription,
-`rg-avnm-platform` with `avnm-platform` (scope mg-demo), 4 IPAM pools,
-prod network group/mesh/rules, 4 commits. All free until a VNet is
-managed. No hubs, no clusters, no stamp VNets.
+**Cost meter ≈ $150/mo while dev stays up** (2× D2s_v6 nodes, 2 AVNM
+managed VNets, 2 ACR Basic, 2 LB IPs). Deployed 2026-11-02:
+- `live/platform`: mg-demo tree; in connectivity: `rg-avnm-platform` /
+  `avnm-platform` (scope mg-demo), 6 IPAM pools (2 roots, dev+prod per
+  region), dev+prod network groups/meshes/rule collections, 4 commits.
+- `live/dev` (both regions): hubs in connectivity (no firewall), stamps
+  in the dev subscription: VNets 10.16.0.0/22 + 10.32.0.0/22 from IPAM,
+  AKS `aks-demo-dev-{wus3,eus2}` (Cilium dataplane), ACR Basic. Mesh +
+  caller-identity policy + rule 300 all verified
+  (.ai/test-results/2026-11-02-avnm-mesh-e2e.md). Test namespaces deleted.
+- TEMP edits still in `live/dev/env.hcl`: `enable_avnm = true`,
+  `network_policy = "cilium"` - decide defaults before merging PR #1.
+Tear down dev: `cd live/dev && terragrunt run --all -- destroy` (platform
+stays, $0). Kubeconfigs: `~/.kube/aks-demo-dev-{wus3,eus2}.yaml`.
 
 Full `terragrunt run --all -- destroy` of live/dev completed 2026-07-22:
 72 resources across 4 units (wus3/eus2 × hub/aks-spoke), zero errors.
@@ -71,9 +80,8 @@ validates offline (10 units); nothing applied yet. Address plan renumbered
 ## Immediate next steps
 
 See .ai/status/task-backlog.md. Top of stack:
-1. Live-verify plan 003 in dev with `enable_avnm = true` (~$150/mo while
-   up): `cd live/dev && terragrunt run --all -- apply` (hubs → stamps,
-   cross-subscription peering); record evidence; then merge PR #1.
-2. Optional: drop Owner at `/` back to Management Group Contributor
-   (docs/subscriptions.md).
-3. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).
+1. Decide: destroy dev now (saves ~$150/mo) or keep for the N-stamp demo;
+   decide dev defaults for `enable_avnm` / `network_policy` (TEMP edits).
+2. Merge PR #1 (CI green; all verification done).
+3. Optional: drop Owner at `/` back to Management Group Contributor.
+4. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).

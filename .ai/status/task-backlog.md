@@ -4,10 +4,9 @@
 
 - [ ] Consider trimming Owner at `/` to Management Group Contributor now
       that the hierarchy exists (docs/subscriptions.md).
-- [ ] Plan 003 live verification: apply dev with `enable_avnm = true` (both
-      regions, no firewalls), prove mesh cluster-to-cluster + policy
-      membership + security admin rule; record in .ai/test-results/.
-      Then decide: merge feat/avnm-ipam-mesh → main.
+- [ ] Decide dev defaults after verification: keep `enable_avnm = true` /
+      `network_policy = "cilium"` (TEMP markers in live/dev/env.hcl) or
+      revert to the $0-AVNM floor; destroy or keep the running dev; merge PR #1.
 - [ ] Consider renaming the original "Pay-As-You-Go" subscription to
       "management" in the portal (cosmetic; IDs are what matter).
 
@@ -40,6 +39,11 @@
 - [ ] tflint + checkov in CI (kept out initially for signal/noise).
 
 ## Done (this file is append-only history; newest first)
+
+- [x] 2026-11-02 Plan 003 live-verified in dev across subscriptions: IPAM
+      stamps, policy membership, global mesh curl (node-IP caller identity),
+      Cilium fromCIDR allow/deny, rule 300 vs public LB :22. Five live-only
+      fixes. Evidence: .ai/test-results/2026-11-02-avnm-mesh-e2e.md.
 
 - [x] 2026-11-02 prod subscription created + placed under mg-demo-prod
       (1 in-place MG change). Plan 004 complete. PR #1 open, CI green.

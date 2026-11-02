@@ -146,7 +146,8 @@ evidence in `.ai/test-results/`.
 (`live/platform/network`): IPAM-allocated stamp /22s, one global mesh per
 environment (direct cross-region cluster-to-cluster with no firewall in the
 path) and security admin guardrails; see
-[docs/network-platform.md](docs/network-platform.md). Not yet verified live.
+[docs/network-platform.md](docs/network-platform.md). Verified live
+2026-11-02 across subscriptions; evidence in `.ai/test-results/`.
 
 ## CI
 
