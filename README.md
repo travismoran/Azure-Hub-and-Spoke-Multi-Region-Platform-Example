@@ -134,7 +134,7 @@ Set per environment in `live/<env>/env.hcl`:
 | `enable_defender` | `false` | `true` | ~$7/vCPU/mo |
 | `enable_azure_policy` | `false` | `true` | free |
 | `enable_telemetry` (AVM) | `false` | `false` | phone-home, disabled |
-| system pool | 1× B2ms | 3× D4ds_v5 zoned | ~10× |
+| system pool | 1× B2s_v2 | 3× D4ds_v5 zoned | ~10× |
 | user pools | Spot, scales from 0 | on-demand zoned | ~5-10× |
 
 \* flip to `true` to enable the cross-region hub-to-hub transit path

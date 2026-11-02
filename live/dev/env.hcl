@@ -16,10 +16,10 @@ locals {
   # Who can kubectl: your own object id, via env var (never committed).
   #   az ad signed-in-user show --query id -o tsv
   cluster_admin_principal_ids = compact([get_env("TG_CLUSTER_ADMIN_OBJECT_ID", "")])
-  network_policy              = null
+  network_policy              = "cilium" # TEMP: plan 003 verification needs an enforced policy engine
 
   system_node_pool = {
-    vm_size              = "Standard_B2ms" # 2 vCPU / 8 GiB burstable, ~$60/mo
+    vm_size              = "Standard_B2s_v2" # 2 vCPU / 8 GiB burstable, ~$60/mo (v1 B-series and AMD sizes are not offered to new PAYG subscriptions in every region)
     min_count            = 1
     max_count            = 2
     critical_addons_only = true
@@ -28,7 +28,7 @@ locals {
   # One Spot pool for workloads: scales from zero, evictable, 70-90% cheaper.
   user_node_pools = {
     spot = {
-      vm_size   = "Standard_D2as_v5"
+      vm_size   = "Standard_D2s_v5"
       min_count = 0
       max_count = 2
       priority  = "Spot"
@@ -53,7 +53,7 @@ locals {
   # (~$0.10/hr each) plus a small per-active-IP IPAM fee, so dev leaves it
   # off: each spoke gets a static /22 from region.hcl and regions stay
   # isolated (or transit via hub firewalls, enable_firewall).
-  enable_avnm         = false
+  enable_avnm         = true                   # TEMP: plan 003 live verification (2026-11-02)
   regions             = ["westus3", "eastus2"] # folders here holding a region.hcl
   stamp_prefix_length = 22
 
