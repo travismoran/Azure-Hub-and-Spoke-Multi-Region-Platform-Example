@@ -1,27 +1,28 @@
 # ACTIVE SESSION - read me first
 
-Last updated: 2026-11-02 (DEV IS UP with the AVNM mesh - ~$150/mo accruing)
+Last updated: 2026-11-02 (dev DESTROYED; only the $0 platform layer is live)
 
 ## 🚨 Live infrastructure & money meter
 
-**Cost meter ≈ $150/mo while dev stays up** (2× D2s_v6 nodes, 2 AVNM
-managed VNets, 2 ACR Basic, 2 LB IPs). Deployed 2026-11-02:
-- `live/platform`: mg-demo tree; in connectivity: `rg-avnm-platform` /
-  `avnm-platform` (scope mg-demo), 6 IPAM pools (2 roots, dev+prod per
-  region), dev+prod network groups/meshes/rule collections, 4 commits.
-- `live/dev` (both regions): hubs in connectivity (no firewall), stamps
-  in the dev subscription: VNets 10.16.0.0/22 + 10.32.0.0/22 from IPAM,
-  AKS `aks-demo-dev-{wus3,eus2}` (Cilium dataplane), ACR Basic. Mesh +
-  caller-identity policy + rule 300 all verified
-  (.ai/test-results/2026-11-02-avnm-mesh-e2e.md). Test namespaces deleted.
-- TEMP edits still in `live/dev/env.hcl`: `enable_avnm = true`,
-  `network_policy = "cilium"` - decide defaults before merging PR #1.
-Tear down dev: `cd live/dev && terragrunt run --all -- destroy` (platform
-stays, $0). Kubeconfigs: `~/.kube/aks-demo-dev-{wus3,eus2}.yaml`.
+**Cost meter ≈ $0/mo.** Nothing from `live/dev` or `live/prod` exists.
+Live, on purpose, in the connectivity subscription (`live/platform`,
+applied 2026-11-02): mg-demo tree, `rg-avnm-platform` / `avnm-platform`
+(scope mg-demo), 6 IPAM pools (2 roots, dev+prod per region), dev+prod
+network groups / meshes / security admin rule collections, 4 region
+deployments. Network groups are empty and the dev pools show 0 allocated
+addresses - the next `live/dev` apply re-carves the same /22 stamps.
 
-Full `terragrunt run --all -- destroy` of live/dev completed 2026-07-22:
-72 resources across 4 units (wus3/eus2 × hub/aks-spoke), zero errors.
-Reverse dependency order held (spokes → eus2 hub → wus3 hub).
+Dev was UP 2026-11-02 for plan 003 verification (hubs in connectivity,
+stamps in dev, mesh verified - .ai/test-results/2026-11-02-avnm-mesh-e2e.md)
+and then destroyed the same day: `terragrunt run --all -- destroy` from
+`live/dev`, 46 resources across 4 units (20+20 spokes, 4 eus2 hub, 2 wus3
+hub), zero errors, zero orphans (only Azure's auto-created
+`NetworkWatcherRG` and `azure-signup-rg` remain in the new subscriptions,
+both free). Evidence: .ai/test-results/2026-11-02-dev-teardown.md.
+
+Dev defaults in `live/dev/env.hcl` still carry the TEMP markers
+(`enable_avnm = true`, `network_policy = "cilium"`) - a re-apply lands at
+~$150/mo with the mesh; revert both for the ~$75-100/mo floor.
 
 Still existing, on purpose:
 - `rg-tfstate-dev` + state storage account (names in `.env`) - holds all
@@ -55,8 +56,9 @@ declares the hub↔hub peering inputs - inert and free without firewalls.
 
 ## What this project has proven end-to-end
 
-- Full platform build + teardown cycle with external state (this file's
-  history: applied 2026-07-21, destroyed 2026-07-22, zero orphans).
+- Full platform build + teardown cycle with external state, twice: applied
+  2026-07-21 / destroyed 2026-07-22, and (multi-subscription, AVNM mesh)
+  applied + destroyed 2026-11-02 - zero orphans both times.
 - Cross-region cluster-to-cluster via hub firewalls transit -
   evidence preserved in .ai/test-results/2026-07-21-aks-e2e.md.
 
@@ -80,9 +82,8 @@ validates offline (10 units); nothing applied yet. Address plan renumbered
 ## Immediate next steps
 
 See .ai/status/task-backlog.md. Top of stack:
-1. Decide: destroy dev now (saves ~$150/mo) or keep for the N-stamp demo;
-   decide dev defaults for `enable_avnm` / `network_policy` (TEMP edits in
-   live/dev/env.hcl, now on main).
+1. Decide dev defaults for `enable_avnm` / `network_policy` (TEMP edits in
+   live/dev/env.hcl, now on main). Dev is destroyed (2026-11-02).
 2. Optional: drop Owner at `/` back to Management Group Contributor.
 3. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).
 

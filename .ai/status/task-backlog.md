@@ -4,9 +4,9 @@
 
 - [ ] Consider trimming Owner at `/` to Management Group Contributor now
       that the hierarchy exists (docs/subscriptions.md).
-- [ ] Decide dev defaults after verification: keep `enable_avnm = true` /
+- [ ] Decide dev defaults: keep `enable_avnm = true` /
       `network_policy = "cilium"` (TEMP markers in live/dev/env.hcl) or
-      revert to the $0-AVNM floor; destroy or keep the running dev.
+      revert to the ~$75-100/mo no-AVNM floor. Dev is destroyed.
 - [ ] Consider renaming the original "Pay-As-You-Go" subscription to
       "management" in the portal (cosmetic; IDs are what matter).
 
@@ -65,6 +65,9 @@
       /22 layout via AVM subnet submodule, Cilium dataplane fix, docs.
       Offline validate 10/10 units. Branch feat/avnm-ipam-mesh.
 
+- [x] 2026-11-02 Dev teardown after plan 003 verification: 46 resources across
+      4 units destroyed, zero errors/orphans; IPAM pools released the /22s,
+      network groups empty; platform layer ($0) left in place.
 - [x] 2026-07-25 `enable_firewall` default back to `false` in dev - cheapest
       footprint for forkers; transit demo re-enabled by one toggle.
 - [x] 2026-07-22 Full teardown: 72 resources destroyed across both dev regions,
