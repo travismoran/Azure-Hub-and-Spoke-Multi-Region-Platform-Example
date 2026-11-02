@@ -45,23 +45,112 @@ toggle, defaulting to off**. Details in
   plans with mocked cross-stack outputs and a local-backend fallback - CI
   needs no Azure at all for the `ci` workflow
 
+## Topology
+
+One tenant, four subscriptions by role, two environments, two regions. The
+tenant-level pieces are applied once from `live/platform`; each
+environment is applied from `live/<env>`. Hubs live in the connectivity
+subscription; every AKS *stamp* (one cluster + one /22 VNet) lives in its
+environment's subscription and is allocated, grouped, meshed and guarded by
+the one Azure Virtual Network Manager at the top management group.
+
+```mermaid
+flowchart TB
+    subgraph tenant["Tenant - management groups applied once from live/platform"]
+        direction TB
+        subgraph mgplat["mg-demo-platform"]
+            direction LR
+            subgraph mgmt["management subscription"]
+                state[("terraform state<br/>(all units)")]
+            end
+            subgraph conn["connectivity subscription"]
+                direction TB
+                avnm["avnm-platform (scope: mg-demo)<br/>IPAM pools · network groups · meshes · security admin"]
+                hubdw["hub dev/westus3<br/>10.0.0.0/22"]
+                hubde["hub dev/eastus2<br/>10.1.0.0/22"]
+                hubpw["hub prod/westus3<br/>10.0.4.0/22 + firewall"]
+                hubpe["hub prod/eastus2<br/>10.1.4.0/22 + firewall"]
+            end
+        end
+        subgraph mglz["mg-demo-landingzones"]
+            direction LR
+            subgraph devsub["mg-demo-dev → dev subscription"]
+                sdw["stamp dev/westus3<br/>/22 from pool 10.16.0.0/16"]
+                sde["stamp dev/eastus2<br/>/22 from pool 10.32.0.0/16"]
+            end
+            subgraph prodsub["mg-demo-prod → prod subscription"]
+                spw["stamp prod/westus3<br/>/22 from pool 10.17.0.0/16"]
+                spe["stamp prod/eastus2<br/>/22 from pool 10.33.0.0/16"]
+            end
+        end
+    end
+    hubdw <-- "peering (both directions, cross-subscription)" --> sdw
+    hubde <-- peering --> sde
+    hubpw <-- peering --> spw
+    hubpe <-- peering --> spe
+    sdw <-. "cc-mesh-dev (global)" .-> sde
+    spw <-. "cc-mesh-prod (global)" .-> spe
+    avnm -. "tag role=aks-stamp, env=… → network group" .-> sdw
+    avnm -.-> sde
+    avnm -.-> spw
+    avnm -.-> spe
+```
+
+Each stamp VNet is cut the same way (system /25, ilb /27, user /24, pe /24;
+[docs/ipam.md](docs/ipam.md)). Traffic between stamps of one environment
+rides the mesh directly on node IPs - no hub hop, no NAT - and the calling
+stamp's node subnets are the caller identity for in-cluster policy.
+Environments never share a mesh, and security admin rules deny every other
+environment's pools before any NSG is consulted.
+
+### N+1: adding a stamp, a region, an environment
+
+Nothing above is wired by hand. Each kind of growth is a folder plus a few
+lines, and the platform reacts through data: IPAM hands out the next /22,
+the tag-driven policy adds the VNet to its group, the committed mesh and
+rules apply to the new member automatically.
+
+```mermaid
+flowchart LR
+    subgraph add1["+1 stamp (same env & region)"]
+        a1["copy live/dev/westus3/aks-spoke<br/>→ aks-spoke-2 (stamp-id differs)"] --> a2["IPAM allocates the next /22<br/>from ipam-wus3-dev"] --> a3["VNet tagged role=aks-stamp, env=dev"] --> a4["policy adds it to ng-stamps-dev<br/>→ mesh + rules apply"]
+    end
+    subgraph add2["+1 region"]
+        b1["live/platform/platform.hcl:<br/>regions += new region root /12"] --> b2["live/ENV/REGION/region.hcl:<br/>hub /22 + stamp pool /16"] --> b3["hub/ + aks-spoke/ stubs<br/>(two 8-line files each)"] --> b4["platform apply: root + env pools,<br/>commits in the new region"]
+    end
+    subgraph add3["+1 environment (+1 subscription)"]
+        c1["create the subscription in the portal,<br/>TG_SUBSCRIPTION_ENV in .env"] --> c2["platform.hcl: environments += env<br/>live/ENV/env.hcl + regions"] --> c3["platform apply: management group,<br/>pools, group, mesh, rule collection"] --> c4["other envs' deny rules<br/>pick up the new pools"]
+    end
+```
+
+The state of each stamp is independent: adding or destroying one never
+touches the hub, the platform or another stamp (membership is by tag, both
+peering directions are created by the stamp). Limits that matter at scale
+(addresses per connected group, VNets per mesh) are listed in
+[docs/network-platform.md](docs/network-platform.md).
+
 ## Layout
 
 ```
 modules/
+├── management-groups/  mg-<prefix> → platform / landingzones → <env>; subscription placement
+├── platform-network/   one AVNM at the top MG: IPAM pool hierarchy, network groups, meshes, security admin
 ├── hub/                wraps avm-ptn-hubnetworking (firewall optional, off by default)
-├── aks-spoke/          stamp vnet (/22, static or IPAM) + hub peering + AKS + optional ACR/LAW
-└── platform-network/   AVNM + IPAM pools + network group + global mesh + security admin
+└── aks-spoke/          stamp vnet (/22, static or IPAM) + hub peering + AKS + optional ACR/LAW
 live/
-├── root.hcl                     backend + provider generation (env-var driven)
-├── _envcommon/{hub,aks-spoke,platform-network}.hcl   shared unit config + dependency wiring
-├── dev/                         cheapest-possible settings
+├── root.hcl                     backend + provider generation; subscription placement per unit path
+├── _envcommon/                  shared unit config + dependency wiring (one file per unit type)
+├── platform/                    applied once per tenant
+│   ├── platform.hcl             environments, subscription roles (env vars), regional root pools
+│   ├── management-groups/
+│   └── network/                 external dependency of every stamp
+├── dev/                         cheapest-possible settings, opt-in to the mesh
 │   ├── env.hcl
-│   ├── platform-network/        one per environment (empty when enable_avnm = false)
 │   ├── westus3/{region.hcl, hub/, aks-spoke/}
 │   └── eastus2/{region.hcl, hub/, aks-spoke/}
-└── prod/                        every toggle on (plan-only demonstration)
-bootstrap/        az CLI script that creates the state storage account
+└── prod/                        everything on (plan-only in CI)
+    └── ...same shape
+bootstrap/        state storage account + resource provider registration (az CLI)
 docs/             architecture, subscriptions, IPAM, network platform, costs, OIDC setup
 ```
 
