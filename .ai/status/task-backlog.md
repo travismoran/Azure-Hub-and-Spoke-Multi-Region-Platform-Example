@@ -2,9 +2,8 @@
 
 ## Now / decisions pending
 
-- [ ] Plan 004 tail: create `prod` subscription (24h rate limit) →
-      `TG_SUBSCRIPTION_PROD` → bootstrap/register-providers.sh → re-apply
-      live/platform/management-groups. Then consider trimming Owner at `/`.
+- [ ] Consider trimming Owner at `/` to Management Group Contributor now
+      that the hierarchy exists (docs/subscriptions.md).
 - [ ] Plan 003 live verification: apply dev with `enable_avnm = true` (both
       regions, no firewalls), prove mesh cluster-to-cluster + policy
       membership + security admin rule; record in .ai/test-results/.
@@ -41,6 +40,9 @@
 - [ ] tflint + checkov in CI (kept out initially for signal/noise).
 
 ## Done (this file is append-only history; newest first)
+
+- [x] 2026-11-02 prod subscription created + placed under mg-demo-prod
+      (1 in-place MG change). Plan 004 complete. PR #1 open, CI green.
 
 - [x] 2026-11-02 live/platform applied + verified (MG tree, AVNM at
       mg-demo, nested IPAM pools, MG policy, 4 commits; $0). Live-only

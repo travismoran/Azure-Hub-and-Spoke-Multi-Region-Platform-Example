@@ -1,6 +1,6 @@
 # ACTIVE SESSION - read me first
 
-Last updated: 2026-11-02 (live/platform applied; environments not applied)
+Last updated: 2026-11-02 (live/platform applied incl. prod placement; environments not applied)
 
 ## 🚨 Live infrastructure & money meter
 
@@ -20,12 +20,12 @@ Still existing, on purpose:
   original "Pay-As-You-Go" subscription = the **management** subscription.
 - prod/ tree: defined, never applied (by design).
 
-Subscriptions in the tenant (2026-11-01; IDs only in `.env`, never here):
-`Pay-As-You-Go` (management: state), `connectivity`, `dev` - both new,
-created in the portal (billing account is MOSP → no API vending), resource
-providers registered via bootstrap/register-providers.sh. `prod`: blocked
-by the 24h subscription-creation rate limit, create tomorrow. No
-management groups exist yet (needs tenant-root elevation, user action).
+Subscriptions in the tenant (IDs only in `.env`, never here):
+`Pay-As-You-Go` (management: state), `connectivity`, `dev`, `prod` - the
+last three created in the portal 2026-11-01/02 (billing account is MOSP →
+no API vending), providers registered via bootstrap/register-providers.sh,
+all placed in the mg-demo tree by Terraform. User holds Owner + User
+Access Administrator at `/` (elevated 2026-11-02; can be trimmed).
 
 Stale local artifacts: `~/.kube/aks-demo-dev-{wus3,eus2}.yaml` point at
 deleted clusters - regenerate with `az aks get-credentials --file ...` after
@@ -71,13 +71,9 @@ validates offline (10 units); nothing applied yet. Address plan renumbered
 ## Immediate next steps
 
 See .ai/status/task-backlog.md. Top of stack:
-1. prod subscription (rate limit lifts ~2026-11-02 evening) →
-   `TG_SUBSCRIPTION_PROD` in .env → `bootstrap/register-providers.sh` →
-   `cd live/platform/management-groups && terragrunt apply` (sub moves
-   under mg-demo-prod). Still never apply prod stamps.
-2. Live-verify plan 003 in dev with `enable_avnm = true` (~$150/mo while
+1. Live-verify plan 003 in dev with `enable_avnm = true` (~$150/mo while
    up): `cd live/dev && terragrunt run --all -- apply` (hubs → stamps,
-   cross-subscription peering); record evidence; merge to main.
-3. Optional: drop Owner at `/` back to Management Group Contributor
+   cross-subscription peering); record evidence; then merge PR #1.
+2. Optional: drop Owner at `/` back to Management Group Contributor
    (docs/subscriptions.md).
-4. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).
+3. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).

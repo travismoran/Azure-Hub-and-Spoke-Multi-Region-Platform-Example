@@ -1,6 +1,6 @@
 # 004 - Enterprise layout: subscriptions per role, management groups, one AVNM at the top MG
 
-- **Status**: in-progress (live/platform APPLIED 2026-11-02 and verified - .ai/test-results/2026-11-02-platform-apply.md; prod subscription pending)
+- **Status**: complete (live/platform applied 2026-11-02; prod subscription created and placed under mg-demo-prod the same day). Follow-on: plan 003 step 5 (dev mesh live verification).
 - **Date**: 2026-11-01
 - **Branch**: feat/avnm-ipam-mesh (on top of plan 003)
 - **Source**: the same Claude Docs plan as 003 - this iteration removes the
@@ -76,9 +76,10 @@ by az CLI in bootstrap (Terraform-managed is the point).
 7. [x] Applied `live/platform` 2026-11-02: MG tree, placement, AVNM scope
        = mg-demo, nested pools, MG policy assignment, 4 commits Deployed.
        Two live-only fixes (pool display_name, DirectlyConnected).
-8. [ ] Tomorrow: create prod sub → `TG_SUBSCRIPTION_PROD` → re-run
-       register-providers → apply management-groups (sub moves under
-       mg-demo-prod). Still never apply prod stamps.
+8. [x] 2026-11-02: prod sub created (portal) → `TG_SUBSCRIPTION_PROD` →
+       register-providers (12 namespaces) → management-groups apply: 1
+       in-place change, prod now under mg-demo-prod. Prod stamps still
+       never applied.
 9. [ ] Then plan 003 step 5 (live mesh verification in dev with
        enable_avnm=true) - now cross-subscription too.
 

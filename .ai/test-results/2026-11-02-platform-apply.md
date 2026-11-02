@@ -23,6 +23,15 @@ Verified with az (IDs withheld):
   Deployed in westus3 and eastus2.
 - Cost: $0 - no VNet is managed (no prod stamps exist).
 
+Later the same day: prod subscription created in the portal (24h rate
+limit had lifted), `TG_SUBSCRIPTION_PROD` set, providers registered,
+`live/platform/management-groups` re-applied → plan showed exactly one
+in-place change (`azurerm_management_group.env["prod"]`), and
+`az account management-group show -n mg-demo -e -r` now lists all four
+subscriptions: management + connectivity under platform, dev and prod
+under their landing-zone groups. The MG-scoped membership policy inherits
+to prod automatically - no network unit change.
+
 Fixes found only by the live apply:
 
 1. IPAM pool `display_name` rejects spaces (provider validation) →
