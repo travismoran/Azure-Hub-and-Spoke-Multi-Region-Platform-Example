@@ -2,11 +2,9 @@
 
 ## Now / decisions pending
 
-- [ ] Plan 004 go-live: user elevates tenant-root access + fills
-      `TG_SUBSCRIPTION_*` in .env → apply `live/platform` (MGs, AVNM; $0)
-      → verify MG tree / placement / AVNM scope. Tomorrow: create `prod`
-      subscription (24h rate limit) → `TG_SUBSCRIPTION_PROD` → re-run
-      bootstrap/register-providers.sh → re-apply management-groups.
+- [ ] Plan 004 tail: create `prod` subscription (24h rate limit) →
+      `TG_SUBSCRIPTION_PROD` → bootstrap/register-providers.sh → re-apply
+      live/platform/management-groups. Then consider trimming Owner at `/`.
 - [ ] Plan 003 live verification: apply dev with `enable_avnm = true` (both
       regions, no firewalls), prove mesh cluster-to-cluster + policy
       membership + security admin rule; record in .ai/test-results/.
@@ -43,6 +41,10 @@
 - [ ] tflint + checkov in CI (kept out initially for signal/noise).
 
 ## Done (this file is append-only history; newest first)
+
+- [x] 2026-11-02 live/platform applied + verified (MG tree, AVNM at
+      mg-demo, nested IPAM pools, MG policy, 4 commits; $0). Live-only
+      fixes: pool display_name, mesh group DirectlyConnected.
 
 - [x] 2026-11-01 Plan 004 code+docs: modules/management-groups, tenant-wide
       platform-network at MG scope with nested IPAM pools, subscription

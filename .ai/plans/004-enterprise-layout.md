@@ -1,6 +1,6 @@
 # 004 - Enterprise layout: subscriptions per role, management groups, one AVNM at the top MG
 
-- **Status**: in-progress (code + docs done, offline-validated; MG/platform apply pending tenant-root elevation; prod subscription pending)
+- **Status**: in-progress (live/platform APPLIED 2026-11-02 and verified - .ai/test-results/2026-11-02-platform-apply.md; prod subscription pending)
 - **Date**: 2026-11-01
 - **Branch**: feat/avnm-ipam-mesh (on top of plan 003)
 - **Source**: the same Claude Docs plan as 003 - this iteration removes the
@@ -71,11 +71,11 @@ by az CLI in bootstrap (Terraform-managed is the point).
        architecture.md, README, costs, bootstrap, OIDC; ADR-012
 5. [x] Azure: providers registered in connectivity + dev (+ management
        already) 2026-11-01
-6. [ ] User: elevate tenant-root access (docs/subscriptions.md step 4);
-       `.env` gets TG_SUBSCRIPTION_{MANAGEMENT,CONNECTIVITY,DEV}, PROD=""
-7. [ ] Apply `live/platform` (MGs + AVNM with prod pools; $0) - verify MG
-       tree, subscription placement, Microsoft.Network registered on MG,
-       AVNM scope = MG, policy assignments at MG
+6. [x] User elevated tenant-root access + Owner at `/` (2026-11-02);
+       `.env` has TG_SUBSCRIPTION_{MANAGEMENT,CONNECTIVITY,DEV}, PROD=""
+7. [x] Applied `live/platform` 2026-11-02: MG tree, placement, AVNM scope
+       = mg-demo, nested pools, MG policy assignment, 4 commits Deployed.
+       Two live-only fixes (pool display_name, DirectlyConnected).
 8. [ ] Tomorrow: create prod sub → `TG_SUBSCRIPTION_PROD` → re-run
        register-providers → apply management-groups (sub moves under
        mg-demo-prod). Still never apply prod stamps.

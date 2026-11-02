@@ -24,7 +24,7 @@ resource "azurerm_network_manager_connectivity_configuration" "mesh" {
 
   applies_to_group {
     network_group_id    = azurerm_network_manager_network_group.stamps[each.key].id
-    group_connectivity  = "None" # the Mesh topology itself connects the members
+    group_connectivity  = "DirectlyConnected" # required for a global group (Azure rejects None + global)
     global_mesh_enabled = true
   }
 }

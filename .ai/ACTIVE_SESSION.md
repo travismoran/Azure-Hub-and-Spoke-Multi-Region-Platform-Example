@@ -1,10 +1,14 @@
 # ACTIVE SESSION - read me first
 
-Last updated: 2026-11-01 (plans 003 + 004 implemented offline, not applied)
+Last updated: 2026-11-02 (live/platform applied; environments not applied)
 
 ## 🚨 Live infrastructure & money meter
 
-**NOTHING IS DEPLOYED. Cost meter ≈ $0.**
+**Cost meter ≈ $0.** Deployed (2026-11-02, from `live/platform`): the
+management-group tree `mg-demo/*` and, in the connectivity subscription,
+`rg-avnm-platform` with `avnm-platform` (scope mg-demo), 4 IPAM pools,
+prod network group/mesh/rules, 4 commits. All free until a VNet is
+managed. No hubs, no clusters, no stamp VNets.
 
 Full `terragrunt run --all -- destroy` of live/dev completed 2026-07-22:
 72 resources across 4 units (wus3/eus2 × hub/aks-spoke), zero errors.
@@ -67,13 +71,13 @@ validates offline (10 units); nothing applied yet. Address plan renumbered
 ## Immediate next steps
 
 See .ai/status/task-backlog.md. Top of stack:
-1. User: tenant-root elevation (docs/subscriptions.md step 4) + fill
-   `TG_SUBSCRIPTION_MANAGEMENT/CONNECTIVITY/DEV` in .env, `PROD=""`.
-2. `cd live/platform && terragrunt run --all -- plan` then apply ($0:
-   MGs + AVNM + empty prod pools). Verify in portal / `az account
-   management-group show -n mg-demo -e -r`.
-3. Tomorrow: prod subscription → `TG_SUBSCRIPTION_PROD` → register
-   providers → re-apply management-groups.
-4. Live-verify plan 003 in dev with `enable_avnm = true` (~$150/mo while
-   up); record evidence; merge to main.
-5. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).
+1. prod subscription (rate limit lifts ~2026-11-02 evening) →
+   `TG_SUBSCRIPTION_PROD` in .env → `bootstrap/register-providers.sh` →
+   `cd live/platform/management-groups && terragrunt apply` (sub moves
+   under mg-demo-prod). Still never apply prod stamps.
+2. Live-verify plan 003 in dev with `enable_avnm = true` (~$150/mo while
+   up): `cd live/dev && terragrunt run --all -- apply` (hubs → stamps,
+   cross-subscription peering); record evidence; merge to main.
+3. Optional: drop Owner at `/` back to Management Group Contributor
+   (docs/subscriptions.md).
+4. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).
