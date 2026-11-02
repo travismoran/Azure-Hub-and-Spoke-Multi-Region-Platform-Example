@@ -17,6 +17,13 @@
   `TG_SUBSCRIPTION_*`); never hardcode a subscription in a module or leaf.
 - Renders with placeholder IDs are the way to check placement offline:
   `TG_SUBSCRIPTION_DEV=00000000-... terragrunt render --format json`.
+- Terraform omits null-valued outputs from state: a `dependency` lookup of
+  an output that can be null (e.g. the hub's `firewall_private_ip`) must be
+  wrapped in `try(..., null)` or it fails at apply time while validate and
+  mocked plans pass.
+- Validate cannot catch type errors on unknown module outputs (e.g. indexing
+  a `set(string)` output with `[0]`); the first real plan can. Run a real
+  plan for every new module output consumed.
 - Plans against real Azure must be reviewed before apply; never apply prod.
 - New AVM module inputs: read the module's actual `variables.tf` at the
   pinned tag first - optional-attr defaults often don't survive conditional
