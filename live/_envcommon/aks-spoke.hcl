@@ -51,9 +51,11 @@ inputs = {
   stamp_prefix_length = local.env.stamp_prefix_length
   ipam_pool_id        = lookup(lookup(dependency.platform_network.outputs.ipam_pool_ids, local.env.environment, {}), local.region.region_short, null)
 
-  hub_vnet_id         = dependency.hub.outputs.vnet_id
-  hub_vnet_name       = dependency.hub.outputs.vnet_name
-  firewall_private_ip = dependency.hub.outputs.firewall_private_ip
+  hub_vnet_id   = dependency.hub.outputs.vnet_id
+  hub_vnet_name = dependency.hub.outputs.vnet_name
+  # try(): Terraform omits null-valued outputs from state, so with the
+  # firewall off the hub has no firewall_private_ip output at all.
+  firewall_private_ip = try(dependency.hub.outputs.firewall_private_ip, null)
   # With the AVNM mesh on, east-west goes direct over the connected group; a
   # 10/8 UDR to the firewall would override that route, so none is added.
   firewall_routed_cidrs = local.env.enable_avnm ? [] : ["10.0.0.0/8"]
