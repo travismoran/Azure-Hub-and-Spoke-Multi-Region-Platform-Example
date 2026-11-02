@@ -81,7 +81,10 @@ validates offline (10 units); nothing applied yet. Address plan renumbered
 
 See .ai/status/task-backlog.md. Top of stack:
 1. Decide: destroy dev now (saves ~$150/mo) or keep for the N-stamp demo;
-   decide dev defaults for `enable_avnm` / `network_policy` (TEMP edits).
-2. Merge PR #1 (CI green; all verification done).
-3. Optional: drop Owner at `/` back to Management Group Contributor.
-4. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).
+   decide dev defaults for `enable_avnm` / `network_policy` (TEMP edits in
+   live/dev/env.hcl, now on main).
+2. Optional: drop Owner at `/` back to Management Group Contributor.
+3. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).
+
+PR #1 (plans 003 + 004) merged to main 2026-11-02 (merge commit b9796dd);
+branch feat/avnm-ipam-mesh deleted.

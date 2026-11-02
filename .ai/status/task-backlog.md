@@ -6,7 +6,7 @@
       that the hierarchy exists (docs/subscriptions.md).
 - [ ] Decide dev defaults after verification: keep `enable_avnm = true` /
       `network_policy = "cilium"` (TEMP markers in live/dev/env.hcl) or
-      revert to the $0-AVNM floor; destroy or keep the running dev; merge PR #1.
+      revert to the $0-AVNM floor; destroy or keep the running dev.
 - [ ] Consider renaming the original "Pay-As-You-Go" subscription to
       "management" in the portal (cosmetic; IDs are what matter).
 
@@ -39,6 +39,8 @@
 - [ ] tflint + checkov in CI (kept out initially for signal/noise).
 
 ## Done (this file is append-only history; newest first)
+
+- [x] 2026-11-02 PR #1 merged to main (plans 003 + 004, 15 commits).
 
 - [x] 2026-11-02 Plan 003 live-verified in dev across subscriptions: IPAM
       stamps, policy membership, global mesh curl (node-IP caller identity),
