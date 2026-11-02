@@ -15,8 +15,8 @@ inputs = {
   firewall_route_entries = [
     {
       name                = "to-spoke-dev-eus2"
-      address_prefix      = "10.21.0.0/16"
-      next_hop_ip_address = "10.20.0.4"
+      address_prefix      = "10.32.0.0/16"
+      next_hop_ip_address = "10.1.0.4"
     },
   ]
 }

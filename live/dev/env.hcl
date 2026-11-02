@@ -16,10 +16,10 @@ locals {
   # Who can kubectl: your own object id, via env var (never committed).
   #   az ad signed-in-user show --query id -o tsv
   cluster_admin_principal_ids = compact([get_env("TG_CLUSTER_ADMIN_OBJECT_ID", "")])
-  network_policy              = null
+  network_policy              = "cilium" # TEMP: plan 003 verification needs an enforced policy engine
 
   system_node_pool = {
-    vm_size              = "Standard_B2ms" # 2 vCPU / 8 GiB burstable, ~$60/mo
+    vm_size              = "Standard_D2s_v6" # 2 vCPU / 8 GiB, ~$70/mo. New PAYG subscriptions get 10 vCPU of quota in a few current families only (Dsv6 is one, in both regions); B-series and Dsv5 have none.
     min_count            = 1
     max_count            = 2
     critical_addons_only = true
@@ -28,7 +28,7 @@ locals {
   # One Spot pool for workloads: scales from zero, evictable, 70-90% cheaper.
   user_node_pools = {
     spot = {
-      vm_size   = "Standard_D2as_v5"
+      vm_size   = "Standard_D2s_v6"
       min_count = 0
       max_count = 2
       priority  = "Spot"
@@ -43,6 +43,19 @@ locals {
   # Verified working 2026-07-21: .ai/test-results/2026-07-21-aks-e2e.md
   enable_firewall   = false
   firewall_sku_tier = "Basic"
+
+  # --- Network platform: AVNM + IPAM + global mesh (docs/network-platform.md) ---
+  # Opt this environment into the tenant-wide AVNM (live/platform/network):
+  # every spoke /22 is allocated from this env's IPAM pool and all its
+  # spokes join one global mesh (direct cross-region cluster-to-cluster, no
+  # firewall needed for east-west), with the other environments' pools
+  # denied inbound by security admin rules. AVNM bills per managed VNet
+  # (~$0.10/hr each) plus a small per-active-IP IPAM fee, so dev leaves it
+  # off: each spoke gets a static /22 from region.hcl and regions stay
+  # isolated (or transit via hub firewalls, enable_firewall).
+  enable_avnm         = true                   # TEMP: plan 003 live verification (2026-11-02)
+  regions             = ["westus3", "eastus2"] # folders here holding a region.hcl
+  stamp_prefix_length = 22
 
   # --- Optional components (all the expensive telemetry/security is OFF) ---
   enable_acr                = true # Basic, ~$5/mo

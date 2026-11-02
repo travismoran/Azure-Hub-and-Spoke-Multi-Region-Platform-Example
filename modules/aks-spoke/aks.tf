@@ -43,6 +43,7 @@ module "aks" {
     network_plugin      = "azure"
     network_plugin_mode = "overlay"
     network_policy      = var.network_policy
+    network_dataplane   = var.network_policy == "cilium" ? "cilium" : null
     outbound_type       = var.outbound_type
     load_balancer_sku   = "standard"
     pod_cidr            = var.pod_cidr
@@ -59,7 +60,7 @@ module "aks" {
     max_count           = var.system_node_pool.max_count
     os_disk_size_gb     = var.system_node_pool.os_disk_size_gb
     availability_zones  = var.system_node_pool.availability_zones
-    vnet_subnet_id      = module.spoke_vnet.subnets["aks_nodes"].resource_id
+    vnet_subnet_id      = module.subnet["aks-system"].resource_id
     node_taints         = var.system_node_pool.critical_addons_only ? ["CriticalAddonsOnly=true:NoSchedule"] : null
     upgrade_settings    = { max_surge = "10%" }
   }
@@ -75,7 +76,7 @@ module "aks" {
       max_count                 = pool.max_count
       os_disk_size_gb           = pool.os_disk_size_gb
       availability_zones        = pool.availability_zones
-      vnet_subnet_id            = module.spoke_vnet.subnets["aks_nodes"].resource_id
+      vnet_subnet_id            = module.subnet["aks-user"].resource_id
       node_labels               = pool.node_labels
       node_taints               = length(pool.node_taints) > 0 ? pool.node_taints : null
       scale_set_priority        = pool.priority == "Spot" ? "Spot" : null

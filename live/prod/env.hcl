@@ -37,6 +37,13 @@ locals {
   enable_firewall   = true
   firewall_sku_tier = "Standard"
 
+  # --- Network platform: AVNM + IPAM + global mesh (docs/network-platform.md) ---
+  # prod stamps are IPAM-allocated and meshed; dev's pools are denied
+  # inbound automatically (derived from every other env's region.hcl).
+  enable_avnm         = true
+  regions             = ["westus3", "eastus2"]
+  stamp_prefix_length = 22
+
   # --- Optional components ---
   enable_acr                = true
   acr_sku                   = "Premium"

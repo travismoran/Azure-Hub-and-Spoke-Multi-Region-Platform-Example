@@ -28,7 +28,9 @@ az ad app federated-credential create --id "$APP_ID" --parameters '{
   "audiences": ["api://AzureADTokenExchange"]
 }'
 
-# 3. RBAC: Reader is enough for plan-only CI.
+# 3. RBAC: Reader is enough for plan-only CI. Repeat per subscription in
+#    the multi-subscription layout (connectivity, dev; docs/subscriptions.md),
+#    or assign once at mg-<prefix>.
 #    (Use Contributor + User Access Administrator instead if you later add
 #    gated applies.)
 az role assignment create \
@@ -61,6 +63,7 @@ point of OIDC.
 | `AZURE_SUBSCRIPTION_ID` | your subscription id |
 | `TG_STATE_RESOURCE_GROUP` | state resource group name |
 | `TG_STATE_STORAGE_ACCOUNT` | state storage account name |
+| `TG_SUBSCRIPTION_MANAGEMENT`, `TG_SUBSCRIPTION_CONNECTIVITY`, `TG_SUBSCRIPTION_DEV` | optional: the role subscriptions (docs/subscriptions.md); unset = everything in `AZURE_SUBSCRIPTION_ID` |
 
 The `plan` workflow is gated on `vars.AZURE_CLIENT_ID != ''`, so forks that
 skip all of this simply skip the job; the credential-free `ci` workflow still

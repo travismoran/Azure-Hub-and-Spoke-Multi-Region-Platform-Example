@@ -79,3 +79,71 @@ still has a cheap mode. Verified 2026-07-21 (see test-results).
   `zone_redundancy_enabled=false` for Basic.
 - BYO-VNet AKS: control-plane identity needs Network Contributor on the
   spoke VNet (+ node route table) or internal LBs stay `<pending>`.
+
+## ADR-009: AVNM global mesh as the second east-west path; per-env AVNM at subscription scope
+
+2026-11-01 · Accepted
+
+Adapting the "AKS Stamp Network Plan" (one AVNM at the top MG, pools
+root→region→env, one global mesh per environment). This repo has one
+subscription and independent dev/prod trees with separate state, so it runs
+**one AVNM per environment, scoped to the subscription**, one IPAM pool per
+region - same resources, same tag contract (`role=aks-stamp`, `env`, `unit`,
+`stamp-id`), narrower scope. Membership is dynamic via an Azure Policy in
+`Microsoft.Network.Data` mode: the platform state never references a spoke
+(static members would be circular with the pool-ID dependency). Hubs stay
+out of the mesh and keep plain hub↔spoke peering (no AVNM hub-and-spoke
+config: already works, free). The mesh coexists with ADR-007's firewall
+transit as an alternative, not a replacement: `enable_avnm` empties
+`firewall_routed_cidrs` because a UDR overrides the connected-group route.
+Off in dev (AVNM bills per managed VNet), on in prod (plan-only).
+
+## ADR-010: Spokes are uniform /22 stamps; subnets carved via the AVM subnet submodule
+
+2026-11-01 · Accepted
+
+Every spoke VNet is a /22 (`stamp_prefix_length`) with a fixed relative
+layout (system /25, ilb /27, user /24, pe /24; apiserver/pls/agc offsets
+reserved), allocated by IPAM when `enable_avnm` or statically as the first
+/22 of `region.hcl: stamp_pool_prefix` otherwise. The former spoke /16 is
+now the pool (64 stamps). Subnet prefixes are `cidrsubnet()` of the VNet
+module's `address_spaces[0]` output, which cannot feed the same module's
+`subnets` input (cycle) - so subnets use
+`avm-res-network-virtualnetwork//modules/subnet` separately. The submodule
+README explicitly supports "IPAM VNet + traditional subnet" (answers the
+source plan's open question). Node subnets are unique per stamp →
+`node_subnet_prefixes` output is the caller identity for in-cluster policy.
+Trade-off: switching a live spoke between modes recreates VNet + cluster.
+
+## ADR-012: Landing-zone layout - subscription per role, management groups, one AVNM at the top MG
+
+2026-11-01 · Accepted (supersedes the "per-env AVNM at subscription scope" half of ADR-009)
+
+The enterprise plan's real scope costs nothing extra (MGs/subscriptions are
+free; AVNM bills per managed VNet regardless of scope), so the repo now has
+it: `management` (existing sub, holds state), `connectivity` (all hubs +
+AVNM + IPAM), `dev`/`prod` (stamps) under `mg-<prefix>` → `-platform` /
+`-landingzones` → `-<env>`. One `modules/platform-network` instance at
+`live/platform/network`, scoped to the top MG, with /12 root pools per
+region split into /16 env pools (nested IPAM pools), MG-scoped membership
+policies, one mesh per env, and rule 200 derived from the other envs'
+pools. Subscription placement is a path→env-var map in `live/root.hcl`
+(hubs and platform → connectivity; stamps → `TG_SUBSCRIPTION_<ENV>`), with
+`ARM_SUBSCRIPTION_ID` as the fallback so single-subscription use is
+unchanged; `enable_management_groups = false` keeps the AVNM at
+subscription scope for tenants where root elevation is impossible.
+Subscriptions are created in the portal, not vended: the billing account is
+MOSP (personal Pay-As-You-Go), which the subscription alias API does not
+accept; a vending module would be dead code here. Renumbered so the pool
+hierarchy is real: hubs 10.0/10.1.0.0/16 per region, stamp roots
+10.16/10.32.0.0/12 (nothing was deployed, so free). Hub↔spoke peering
+crosses subscriptions - fine because the AVM peering submodule uses full
+resource IDs (azapi) for both directions.
+
+## ADR-011: Cilium dataplane follows network_policy
+
+2026-11-01 · Accepted
+
+Azure rejects `networkPolicy=cilium` without `networkDataplane=cilium`; prod
+(plan-only) had the former without the latter. The wrapper now derives
+`network_dataplane` from `network_policy`, keeping one toggle in env.hcl.

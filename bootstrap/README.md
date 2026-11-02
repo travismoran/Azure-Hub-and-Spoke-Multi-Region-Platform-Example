@@ -23,3 +23,12 @@ Notes:
 - Versioning + 14-day soft delete protect against accidental state
   deletion/corruption.
 - Cost: effectively zero (Standard_LRS, a few KB of blobs).
+- In the multi-subscription layout the state lives in the *management*
+  subscription (`TG_SUBSCRIPTION_MANAGEMENT`, which defaults to
+  `ARM_SUBSCRIPTION_ID`); every unit in every other subscription writes its
+  state there (`subscription_id` in the backend config, Entra auth).
+
+`register-providers.sh` is the other bootstrap step: it registers the
+resource providers the platform needs in every subscription named by
+`ARM_SUBSCRIPTION_ID` / `TG_SUBSCRIPTION_*`. Re-run it whenever a
+subscription is added (e.g. `TG_SUBSCRIPTION_PROD`).
