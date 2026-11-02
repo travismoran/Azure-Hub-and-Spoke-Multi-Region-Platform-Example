@@ -11,7 +11,7 @@ locals {
   # The VNet prefix is either the static one from region.hcl or whatever AVNM
   # IPAM allocated at apply time (then it is "known after apply" on the first
   # plan of a new stamp - expected).
-  vnet_cidr = module.spoke_vnet.address_spaces[0]
+  vnet_cidr = one(module.spoke_vnet.address_spaces) # set(string); one() also passes an unknown through
 
   # Fixed stamp layout, relative to the stamp prefix (shown for a /22; a /21
   # stamp doubles every subnet). Offsets not created here are reserved:
