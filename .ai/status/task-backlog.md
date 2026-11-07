@@ -2,8 +2,9 @@
 
 ## Now / decisions pending
 
-- [ ] Consider trimming Owner at `/` to Management Group Contributor now
-      that the hierarchy exists (docs/subscriptions.md).
+- [ ] Remove Owner + User Access Administrator at `/` now that the
+      hierarchy is destroyed (re-elevate per docs/subscriptions.md when
+      rebuilding). Optionally cancel the connectivity/dev/prod subscriptions.
 - [ ] Decide dev defaults: keep `enable_avnm = true` /
       `network_policy = "cilium"` (TEMP markers in live/dev/env.hcl) or
       revert to the ~$75-100/mo no-AVNM floor. Dev is destroyed.
@@ -65,6 +66,9 @@
       /22 layout via AVM subnet submodule, Cilium dataplane fix, docs.
       Offline validate 10/10 units. Branch feat/avnm-ipam-mesh.
 
+- [x] 2026-11-07 Platform teardown: `live/platform` destroyed (29 AVNM/IPAM/
+      policy resources + 6 management groups), zero errors; subscriptions back
+      under Tenant Root; tenant has no network manager or AVNM policy left.
 - [x] 2026-11-02 Dev teardown after plan 003 verification: 46 resources across
       4 units destroyed, zero errors/orphans; IPAM pools released the /22s,
       network groups empty; platform layer ($0) left in place.

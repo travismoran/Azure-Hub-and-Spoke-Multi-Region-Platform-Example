@@ -1,28 +1,24 @@
 # ACTIVE SESSION - read me first
 
-Last updated: 2026-11-02 (dev DESTROYED; only the $0 platform layer is live)
+Last updated: 2026-11-07 (EVERYTHING from plans 003/004 destroyed - nothing deployed)
 
 ## 🚨 Live infrastructure & money meter
 
-**Cost meter ≈ $0/mo.** Nothing from `live/dev` or `live/prod` exists.
-Live, on purpose, in the connectivity subscription (`live/platform`,
-applied 2026-11-02): mg-demo tree, `rg-avnm-platform` / `avnm-platform`
-(scope mg-demo), 6 IPAM pools (2 roots, dev+prod per region), dev+prod
-network groups / meshes / security admin rule collections, 4 region
-deployments. Network groups are empty and the dev pools show 0 allocated
-addresses - the next `live/dev` apply re-carves the same /22 stamps.
-
-Dev was UP 2026-11-02 for plan 003 verification (hubs in connectivity,
-stamps in dev, mesh verified - .ai/test-results/2026-11-02-avnm-mesh-e2e.md)
-and then destroyed the same day: `terragrunt run --all -- destroy` from
-`live/dev`, 46 resources across 4 units (20+20 spokes, 4 eus2 hub, 2 wus3
-hub), zero errors, zero orphans (only Azure's auto-created
-`NetworkWatcherRG` and `azure-signup-rg` remain in the new subscriptions,
-both free). Evidence: .ai/test-results/2026-11-02-dev-teardown.md.
+**Cost meter = $0/mo. Nothing is deployed.** `live/dev` was destroyed
+2026-11-02 (46 resources) and `live/platform` on 2026-11-07 (29 AVNM/IPAM/
+policy resources + 6 management groups), both with zero errors and zero
+orphans - .ai/test-results/2026-11-02-dev-teardown.md and
+.ai/test-results/2026-11-07-platform-teardown.md. All four subscriptions
+sit directly under the Tenant Root Group again; no network manager, IPAM
+pool, network group or AVNM policy exists anywhere in the tenant. The
+platform state blobs are empty, so a fresh `live/platform` apply rebuilds
+the same tree (the user still holds Owner + User Access Administrator at
+`/`, so no re-elevation needed until those are removed).
 
 Dev defaults in `live/dev/env.hcl` still carry the TEMP markers
-(`enable_avnm = true`, `network_policy = "cilium"`) - a re-apply lands at
-~$150/mo with the mesh; revert both for the ~$75-100/mo floor.
+(`enable_avnm = true`, `network_policy = "cilium"`) - a re-apply of
+platform + dev lands at ~$150/mo with the mesh; revert both for the
+~$75-100/mo no-AVNM floor.
 
 Still existing, on purpose:
 - `rg-tfstate-dev` + state storage account (names in `.env`) - holds all
@@ -34,8 +30,10 @@ Subscriptions in the tenant (IDs only in `.env`, never here):
 `Pay-As-You-Go` (management: state), `connectivity`, `dev`, `prod` - the
 last three created in the portal 2026-11-01/02 (billing account is MOSP →
 no API vending), providers registered via bootstrap/register-providers.sh,
-all placed in the mg-demo tree by Terraform. User holds Owner + User
-Access Administrator at `/` (elevated 2026-11-02; can be trimmed).
+not in any custom management group since the 2026-11-07 teardown. User
+still holds Owner + User Access Administrator at `/` (elevated 2026-11-02;
+remove with `az role assignment delete --scope / --assignee <object-id>
+--role Owner` / `... --role "User Access Administrator"` when done).
 
 Stale local artifacts: `~/.kube/aks-demo-dev-{wus3,eus2}.yaml` point at
 deleted clusters - regenerate with `az aks get-credentials --file ...` after
@@ -58,7 +56,8 @@ declares the hub↔hub peering inputs - inert and free without firewalls.
 
 - Full platform build + teardown cycle with external state, twice: applied
   2026-07-21 / destroyed 2026-07-22, and (multi-subscription, AVNM mesh)
-  applied + destroyed 2026-11-02 - zero orphans both times.
+  applied 2026-11-02 / destroyed 2026-11-02 (dev) + 2026-11-07 (platform
+  incl. management groups) - zero orphans every time.
 - Cross-region cluster-to-cluster via hub firewalls transit -
   evidence preserved in .ai/test-results/2026-07-21-aks-e2e.md.
 
@@ -76,15 +75,17 @@ enterprise layout on top (ADR-012) - `live/platform/{management-groups,
 network}` applied once per tenant, hubs + AVNM in the connectivity
 subscription, stamps in `TG_SUBSCRIPTION_<ENV>`, placement in
 `live/root.hcl`. Apply order: `live/platform` → `live/dev`. Everything
-validates offline (10 units); nothing applied yet. Address plan renumbered
+validates offline (10 units); applied, verified and destroyed. Address plan renumbered
 (docs/ipam.md): hubs 10.0/10.1.x, stamp roots 10.16/10.32.0.0/12.
 
 ## Immediate next steps
 
 See .ai/status/task-backlog.md. Top of stack:
 1. Decide dev defaults for `enable_avnm` / `network_policy` (TEMP edits in
-   live/dev/env.hcl, now on main). Dev is destroyed (2026-11-02).
-2. Optional: drop Owner at `/` back to Management Group Contributor.
+   live/dev/env.hcl, now on main). Everything is destroyed.
+2. Optional: remove Owner + User Access Administrator at `/` (manual, see
+   above); optionally cancel the connectivity/dev/prod subscriptions in the
+   portal if the layout will not be rebuilt.
 3. GitHub repo variables for plan.yml (now incl. TG_SUBSCRIPTION_*).
 
 PR #1 (plans 003 + 004) merged to main 2026-11-02 (merge commit b9796dd);
