@@ -11,8 +11,8 @@
 - [ ] Consider renaming the original "Pay-As-You-Go" subscription to
       "management" in the portal (cosmetic; IDs are what matter).
 
-- [ ] Set GitHub repo variables (AZURE_CLIENT_ID/TENANT/SUBSCRIPTION,
-      TG_STATE_*) + OIDC app per docs/github-oidc-setup.md → activates plan.yml.
+- [ ] ~~GitHub repo variables / OIDC~~ → the real pipelines live in
+      cloud-platform-infra; this repo keeps plan.yml as an example only.
 
 ## Next
 
@@ -40,6 +40,10 @@
 - [ ] tflint + checkov in CI (kept out initially for signal/noise).
 
 ## Done (this file is append-only history; newest first)
+
+- [x] 2026-11-07 `live/platform` destroyed by the user; tenant handed over
+      to the private successor repo travismoran/cloud-platform-infra
+      (created from 10a4010). This repo is the public example only.
 
 - [x] 2026-11-02 PR #1 merged to main (plans 003 + 004, 15 commits).
 
