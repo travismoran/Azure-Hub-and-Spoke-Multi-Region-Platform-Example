@@ -42,7 +42,7 @@
 ## Done (this file is append-only history; newest first)
 
 - [x] 2026-11-07 `live/platform` destroyed by the user; tenant handed over
-      to the private successor repo travismoran/cloud-platform-infra
+      to the private successor repo traviscloud-com/cloud-platform-infra
       (created from 10a4010). This repo is the public example only.
 
 - [x] 2026-11-02 PR #1 merged to main (plans 003 + 004, 15 commits).
