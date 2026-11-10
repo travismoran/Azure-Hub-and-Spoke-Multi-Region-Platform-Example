@@ -15,7 +15,8 @@ locals {
   # ACR: no subscription, management group, hub or stamp. "local" is a
   # laptop cluster (e.g. Rancher Desktop / k3s) used to develop Argo CD app
   # deployments; live/dev/local/local-cluster is its Azure footprint.
-  # Opt in with TG_ENABLE_LOCAL_CLUSTER=true (needs public DNS as well).
+  # Opt in with TG_ENABLE_LOCAL_CLUSTER=true; with public DNS on it also
+  # gets a zone and DNS credentials (README.md "Local cluster ...").
   external_environments = get_env("TG_ENABLE_LOCAL_CLUSTER", "false") == "true" ? ["local"] : []
 
   # Management groups need tenant-root access once (docs/subscriptions.md).
