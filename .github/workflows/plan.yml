@@ -28,6 +28,17 @@ jobs:
     runs-on: ubuntu-latest
     # Skip silently on forks / repos that haven't configured OIDC variables.
     if: vars.AZURE_CLIENT_ID != ''
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [platform, dev, prod]
+    name: plan ${{ matrix.target }}
+    # Plans of two PRs against the same layer share state files; terraform
+    # init leases the blob even with -lock=false, so serialise per layer
+    # (deploy.yml uses the same group names).
+    concurrency:
+      group: tg-${{ matrix.target }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 
@@ -45,7 +56,7 @@ jobs:
       - name: Azure login (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          client-id: ${{ vars.AZURE_PLAN_CLIENT_ID || vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -53,7 +64,7 @@ jobs:
         working-directory: live/dev
         env:
           ARM_USE_OIDC: "true"
-          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_CLIENT_ID: ${{ vars.AZURE_PLAN_CLIENT_ID || vars.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
           TG_SUBSCRIPTION_MANAGEMENT: ${{ vars.TG_SUBSCRIPTION_MANAGEMENT }}
@@ -61,6 +72,12 @@ jobs:
           TG_SUBSCRIPTION_DEV: ${{ vars.TG_SUBSCRIPTION_DEV }}
           TG_STATE_RESOURCE_GROUP: ${{ vars.TG_STATE_RESOURCE_GROUP }}
           TG_STATE_STORAGE_ACCOUNT: ${{ vars.TG_STATE_STORAGE_ACCOUNT }}
+          TG_STATE_CONTAINER: ${{ vars.TG_STATE_CONTAINER || 'tfstate' }}
+          TG_NAME_PREFIX: ${{ vars.TG_NAME_PREFIX || 'demo' }}
+          TG_PUBLIC_DNS_PARENT_ZONE: ${{ vars.TG_PUBLIC_DNS_PARENT_ZONE }}
+          TG_ENABLE_LOCAL_CLUSTER: ${{ vars.TG_ENABLE_LOCAL_CLUSTER || 'false' }}
+          TG_OIDC_SUBJECT_PREFIX_APP_A: ${{ vars.TG_OIDC_SUBJECT_PREFIX_APP_A }}
+          TG_OIDC_SUBJECT_PREFIX_APP_B: ${{ vars.TG_OIDC_SUBJECT_PREFIX_APP_B }}
           TG_NON_INTERACTIVE: "true"
           TG_PROVIDER_CACHE: "1"
         run: terragrunt run --all -- plan -input=false -lock=false

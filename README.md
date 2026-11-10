@@ -25,12 +25,12 @@ toggle, defaulting to off**. Details in
   connectivity, dev, prod) under a small management-group hierarchy, all
   placed by `root.hcl` from env vars - and a single-subscription mode that
   needs nothing extra ([docs/subscriptions.md](docs/subscriptions.md))
-- **8-line leaf configs**: all logic lives in `root.hcl`, `platform.hcl`,
-  `env.hcl`, `region.hcl`, and four `_envcommon` files - adding a region is
-  one folder and two CIDRs
-- **Cost toggles** for firewall, ACR SKU, Log Analytics, container insights,
-  Defender, Azure Policy, cluster tier, private cluster
-  ([docs/costs.md](docs/costs.md))
+- **Short leaf configs**: all logic lives in `root.hcl`, `platform.hcl`,
+  `env.hcl`, `region.hcl`, and the `_envcommon` files - adding a region is
+  one folder and two CIDRs, adding a stamp is one folder
+- **Cost toggles** for firewall, ACR SKU, Log Analytics, managed
+  Prometheus, container insights, Defender, Azure Policy, cluster tier,
+  private cluster ([docs/costs.md](docs/costs.md))
 - **Stamp networking, two ways**: every AKS spoke is a uniform /22 "stamp"
   with a fixed subnet layout. Turn on `enable_avnm` and one tenant-wide
   Azure Virtual Network Manager hands each stamp its /22 from a region →
@@ -38,6 +38,24 @@ toggle, defaulting to off**. Details in
   meshes every stamp of the environment across regions and subscriptions
   (direct cluster-to-cluster, no hub hop) and applies security admin
   guardrails ([docs/network-platform.md](docs/network-platform.md))
+- **Public DNS** (`live/platform/dns`, optional): one `azure.<your domain>`
+  zone with a delegated child zone per environment that each stamp's
+  external-dns publishes into ([docs/dns.md](docs/dns.md))
+- **Identity building blocks**: one workload identity per component per
+  stamp (cert-manager, external-dns, External Secrets), a Key Vault per
+  environment, GitHub OIDC push identities, and a zone-scoped service
+  principal for clusters that run outside Azure
+  ([docs/identity.md](docs/identity.md))
+- **Local clusters as an environment**: a laptop cluster (e.g. Rancher
+  Desktop / k3s) gets a public DNS zone, a Key Vault + External Secrets
+  principal and a Basic ACR - and nothing else (`modules/local-cluster`)
+- **Pipelines**: `ci` (offline validation, tflint, trivy, terraform-docs
+  check and secret scan on every push), `plan` (OIDC plan of every layer on
+  every PR), `deploy` (manual, main-only, confirm-to-apply) and
+  `aks-schedule` (optional overnight stop of dev clusters) -
+  [docs/github-oidc-setup.md](docs/github-oidc-setup.md)
+- **Module sources pinned to commit SHAs**: every AVM module is consumed as
+  `git::...?ref=<40-char sha>` with the tag in a trailing comment
 - **Zero secrets**: `az login` / GitHub OIDC auth, Entra RBAC state access
   (no storage keys), managed identities everywhere, gitleaks in CI and
   pre-commit
@@ -135,23 +153,37 @@ peering directions are created by the stamp). Limits that matter at scale
 modules/
 ├── management-groups/  mg-<prefix> → platform / landingzones → <env>; subscription placement
 ├── platform-network/   one AVNM at the top MG: IPAM pool hierarchy, network groups, meshes, security admin
-├── hub/                wraps avm-ptn-hubnetworking (firewall optional, off by default)
-└── aks-spoke/          stamp vnet (/22, static or IPAM) + hub peering + AKS + optional ACR/LAW
+├── public-dns/         azure.<org> public zone + one delegated child zone per environment
+├── public-dns-principals/  zone-scoped service principal per environment outside Azure (local clusters)
+├── service-principal/  Entra app + SP + Terraform-rotated client secret (tier-4 building block)
+├── workload-identity/  managed identity + federated credential + roles for one service account (tier-1 building block)
+├── github-actions-identity/  managed identity + federated credentials + roles for one GitHub repo's workflows (tier-2 building block)
+├── key-vault/          an environment's RBAC Key Vault (managed / generated / operator-placeholder secrets)
+├── local-cluster/      rg + key-vault + External Secrets principal (+ Basic ACR, push identities, pull token) for an environment outside Azure
+├── hub/                wraps avm-ptn-hubnetworking (firewall optional)
+└── aks-spoke/          stamp vnet (/22, IPAM or static) + hub peering + AKS + optional ACR/LAW
 live/
 ├── root.hcl                     backend + provider generation; subscription placement per unit path
 ├── _envcommon/                  shared unit config + dependency wiring (one file per unit type)
 ├── platform/                    applied once per tenant
 │   ├── platform.hcl             environments, subscription roles (env vars), regional root pools
 │   ├── management-groups/
+│   ├── dns/                     public zones; external dependency of every stamp
+│   ├── dns-principals/          DNS credentials for external environments (docs/identity.md)
 │   └── network/                 external dependency of every stamp
 ├── dev/                         cheapest-possible settings, opt-in to the mesh
 │   ├── env.hcl
+│   ├── keyvault/                kv-demo-dev: the environment's secret store (External Secrets reads it)
+│   ├── local/local-cluster/  Key Vault + ESO principal + ACR for the local Rancher Desktop cluster
 │   ├── westus3/{region.hcl, hub/, aks-spoke/}
 │   └── eastus2/{region.hcl, hub/, aks-spoke/}
 └── prod/                        everything on (plan-only in CI)
     └── ...same shape
-bootstrap/        state storage account + resource provider registration (az CLI)
-docs/             architecture, subscriptions, IPAM, network platform, costs, OIDC setup
+bootstrap/        state storage, provider registration, OIDC identities, tenant access (az CLI)
+catalog/          which stamps may call which -> generated Cilium caller policies
+scripts/          setup-dev, install-tools (pinned), lint (tflint/trivy/terraform-docs), aks-power
+docs/             architecture, subscriptions, IPAM, network platform, DNS, identity, costs, OIDC/CI setup
+.ai/              live state (ACTIVE_SESSION.md), plans, ADRs, backlog, test evidence
 ```
 
 ## Quick start
@@ -183,7 +215,8 @@ az login
 
 # 4. One-time, multi-subscription layout only: tenant-root access for the
 #    management groups (docs/subscriptions.md), then the tenant-level platform
-cd live/platform && terragrunt run --all -- apply     # management groups → network platform
+cd live/platform && terragrunt run --all -- apply     # management groups → network platform + public DNS
+#    if you enabled public DNS: delegate azure.<your domain> at your registrar (docs/dns.md)
 
 # 5. Plan and apply dev (hubs → spokes via the dependency graph)
 cd ../dev
@@ -220,11 +253,22 @@ Set per environment in `live/<env>/env.hcl`:
 | `acr_sku` | `Basic` | `Premium` | $5 vs $50/mo |
 | `enable_log_analytics` | `false` | `true` | ~$2.76/GB ingested |
 | `enable_container_insights` | `false` | `true` | ingestion volume |
+| `enable_managed_prometheus` | `false` | `true` | workspace free, metrics per sample |
 | `enable_defender` | `false` | `true` | ~$7/vCPU/mo |
 | `enable_azure_policy` | `false` | `true` | free |
 | `enable_telemetry` (AVM) | `false` | `false` | phone-home, disabled |
 | system pool | 1× D2s_v6 | 3× D4ds_v5 zoned | ~10× |
 | user pools | Spot, scales from 0 | on-demand zoned | ~5-10× |
+| `aks_outbound_type` | `loadBalancer` | `loadBalancer`* | `userDefinedRouting` sends egress through the hub firewall |
+| `enable_avnm_routing` | `false` | `false`* | AVNM pushes the default route instead of per-stamp UDRs |
+| `enable_private_dns` / `enable_external_dns_identity` | `false` | `false` | central `svc.<env>.platform.internal` zone, ~$0.50/mo |
+| `enable_api_server_vnet_integration` | `false` | `false` | free |
+| `enable_dns_resolver` | `false` | `false` | ~$180/mo per hub |
+| `enable_bastion` (`bastion_sku`) | `false` | `false` | ~$140/mo Basic; Developer free |
+| `enable_extra_stamps` | `false` | `false` | includes `aks-spoke-2`, ... in `run --all` |
+
+\* prod's intended end state is `userDefinedRouting` + `enable_avnm_routing`;
+both stay off until verified in dev with a firewall (ADR-016).
 
 \* flip to `true` to enable the cross-region hub-to-hub transit path
 (Firewall Basic per hub, UDRs, transit rules - all activate automatically;

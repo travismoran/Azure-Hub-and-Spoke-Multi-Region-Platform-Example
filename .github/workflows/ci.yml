@@ -1,4 +1,5 @@
 # Static checks that need no Azure credentials at all.
+# Secret scanning lives in gitleaks.yml (gitleaks-action, licensed for the org).
 # Everything here runs on any fork out of the box.
 name: ci
 
@@ -15,16 +16,6 @@ env:
   TERRAGRUNT_VERSION: 1.1.1
 
 jobs:
-  secret-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   lint-and-validate:
     runs-on: ubuntu-latest
     steps:
@@ -67,3 +58,31 @@ jobs:
           TG_NON_INTERACTIVE: "true"
           TG_PROVIDER_CACHE: "1"
         run: terragrunt run --all -- validate
+
+  lint-and-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install pinned tools (tflint, trivy, terraform-docs)
+        run: |
+          scripts/install-tools.sh tflint trivy terraform-docs
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: tflint (modules)
+        # tflint --init downloads the azurerm ruleset from GitHub releases;
+        # unauthenticated runner IPs hit the API rate limit.
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: scripts/lint.sh tflint
+
+      - name: trivy config scan
+        run: scripts/lint.sh trivy
+
+      - name: module READMEs are current (terraform-docs)
+        run: scripts/lint.sh docs-check

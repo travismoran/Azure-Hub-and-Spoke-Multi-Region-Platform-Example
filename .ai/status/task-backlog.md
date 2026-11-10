@@ -11,39 +11,48 @@
 - [ ] Consider renaming the original "Pay-As-You-Go" subscription to
       "management" in the portal (cosmetic; IDs are what matter).
 
-- [ ] ~~GitHub repo variables / OIDC~~ → the real pipelines live in
-      cloud-platform-infra; this repo keeps plan.yml as an example only.
+- [ ] GitHub repo variables / OIDC for plan.yml + deploy.yml
+      (`GITHUB_REPO=<owner>/<repo> bootstrap/setup-oidc.sh`) - only if this
+      repo should run real plans again; otherwise both workflows skip
+      themselves and only `ci` runs.
 
 ## Next
 
-- [ ] Plan 003 follow-ups from the source plan: AVNM routing config
-      (UseExisting) once `outbound_type = userDefinedRouting` exists; IPAM
-      "VNet must allocate from approved pool" deny policy (Audit first);
-      central `svc.platform.internal` zone + external-dns + hub DNS Private
-      Resolver (~$180/mo/hub); API server VNet integration subnet; stamp
-      catalog → generated Cilium caller policies.
-- [ ] N-stamp demo: second aks-spoke in dev/westus3 (`stamp-id` differs)
-      to show IPAM handing out 10.16.4.0/22 and auto-joining the mesh.
+- [ ] Live-verify the back-ported features (2026-11-10 entry below) in
+      this repo - all validate offline, none has evidence in
+      `.ai/test-results/` here: UDR / AVNM-routing egress through a hub
+      firewall (ADR-016), central private DNS + external-dns (ADR-017),
+      `aks-spoke-2` IPAM + mesh join (ADR-018), public DNS + delegation
+      (ADR-019), local-cluster footprint (ADR-023..026).
 
 - [ ] Verify ci.yml went green on GitHub (offline validate path).
 - [ ] Verify AKS 0.6.7 `count_of` vs cluster-autoscaler: does a second apply
       try to reset node counts scaled by the autoscaler? (Watch a plan after
       the spot pool has scaled up.)
-- [ ] Consider workload identity example (OIDC issuer already enabled).
-- [ ] Consider `az aks stop` schedule / automation note for overnight savings.
 
 ## Someday / maybe
 
 - [ ] Third spoke in an existing region to show N-spoke scaling.
 - [ ] Private cluster + Bastion example path for prod parity testing.
 - [ ] Terragrunt stacks (`terragrunt.stack.hcl`) variant branch for comparison.
-- [ ] tflint + checkov in CI (kept out initially for signal/noise).
 
 ## Done (this file is append-only history; newest first)
 
-- [x] 2026-11-07 `live/platform` destroyed by the user; tenant handed over
-      to the private successor repo traviscloud-com/cloud-platform-infra
-      (created from 10a4010). This repo is the public example only.
+- [x] 2026-11-10 Back-ported the features matured in a private deployment
+      of this example (ADR-013), scrubbed of real values: SHA-pinned AVM
+      sources + tflint/trivy/terraform-docs in CI (ADR-015), deploy.yml +
+      aks-schedule.yml + setup-oidc.sh/tenant-access.sh, UDR/AVNM-routing
+      egress (ADR-016), central private DNS (ADR-017), extra stamps
+      (ADR-018), public DNS (ADR-019, opt-in via TG_PUBLIC_DNS_PARENT_ZONE),
+      managed Prometheus (ADR-020), Network Watcher opt-out (ADR-022),
+      external environment `local` + DNS/ESO principals + Basic ACR
+      (ADR-021/023/024/026, opt-in via TG_ENABLE_LOCAL_CLUSTER), workload
+      identities + per-env Key Vault (ADR-025), stamp catalog → Cilium
+      caller policies. Code only; see "Live-verify" above.
+
+- [x] 2026-11-07 `live/platform` destroyed by the user; the tenant is no
+      longer used by this repo (a private deployment was created from 10a4010).
+      This repo is the public example only.
 
 - [x] 2026-11-02 PR #1 merged to main (plans 003 + 004, 15 commits).
 

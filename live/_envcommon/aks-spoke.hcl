@@ -3,10 +3,15 @@
 locals {
   env    = read_terragrunt_config(find_in_parent_folders("env.hcl")).locals
   region = read_terragrunt_config(find_in_parent_folders("region.hcl")).locals
+  common = read_terragrunt_config(find_in_parent_folders("root.hcl")).locals
+
+  # Stamp identity comes from the folder name: aks-spoke -> "" (first stamp),
+  # aks-spoke-2 -> "-2", ... so N stamps per env/region are N folders.
+  stamp_suffix = trimprefix(basename(get_original_terragrunt_dir()), "aks-spoke")
 }
 
 terraform {
-  source = "${get_repo_root()}/modules/aks-spoke"
+  source = "${get_repo_root()}/modules//aks-spoke" # double slash: copy all of modules/ so ../workload-identity resolves
 }
 
 dependency "hub" {
@@ -15,11 +20,12 @@ dependency "hub" {
   # Mocks let init/validate/plan run before the hub exists (fresh clone, CI).
   # Shape must match modules/hub/outputs.tf exactly.
   mock_outputs = {
-    firewall_private_ip = null
-    location            = "mockregion"
-    resource_group_name = "mock-rg-hub"
-    vnet_id             = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mock-rg-hub/providers/Microsoft.Network/virtualNetworks/mock-vnet-hub"
-    vnet_name           = "mock-vnet-hub"
+    dns_resolver_inbound_ip = null
+    firewall_private_ip     = null
+    location                = "mockregion"
+    resource_group_name     = "mock-rg-hub"
+    vnet_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mock-rg-hub/providers/Microsoft.Network/virtualNetworks/mock-vnet-hub"
+    vnet_name               = "mock-vnet-hub"
   }
   mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
@@ -30,11 +36,45 @@ dependency "platform_network" {
   # Shape must match modules/platform-network/outputs.tf exactly. Empty pool
   # map = static addressing, which is also what enable_avnm = false yields.
   mock_outputs = {
-    ipam_pool_ids      = {}
-    ipam_pool_prefixes = {}
-    network_group_ids  = {}
-    network_manager_id = null
-    root_pool_ids      = {}
+    ipam_pool_ids        = {}
+    ipam_pool_prefixes   = {}
+    network_group_ids    = {}
+    network_manager_id   = null
+    private_dns_zone_ids = {}
+    root_pool_ids        = {}
+  }
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
+}
+
+dependency "public_dns" {
+  config_path = "../../../platform/dns"
+
+  # Shape must match modules/public-dns/outputs.tf exactly. Empty = no
+  # public zone, which is also what enable_public_dns = false yields.
+  mock_outputs = {
+    env_zone_ids        = {}
+    env_zone_names      = {}
+    parent_name_servers = []
+    parent_zone_id      = null
+    parent_zone_name    = null
+    resource_group_name = null
+  }
+  mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
+}
+
+dependency "keyvault" {
+  config_path = "../../keyvault"
+
+  # Shape must match modules/key-vault/outputs.tf exactly. Null = no vault,
+  # which also disables the external-secrets identity.
+  mock_outputs = {
+    managed_secret_names  = []
+    name                  = null
+    operator_secret_names = []
+    resource_group_name   = null
+    resource_id           = null
+    tenant_id             = null
+    uri                   = null
   }
   mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }
@@ -44,6 +84,7 @@ inputs = {
   location     = local.region.location
   region_short = local.region.region_short
   name_prefix  = local.env.name_prefix
+  stamp_suffix = local.stamp_suffix
 
   # Static fallback = the first /<stamp_prefix_length> of this region's stamp
   # pool; with enable_avnm the VNet is allocated from the pool instead.
@@ -59,6 +100,21 @@ inputs = {
   # With the AVNM mesh on, east-west goes direct over the connected group; a
   # 10/8 UDR to the firewall would override that route, so none is added.
   firewall_routed_cidrs = local.env.enable_avnm ? [] : ["10.0.0.0/8"]
+  outbound_type         = local.env.aks_outbound_type
+  avnm_routing          = local.env.enable_avnm && local.env.enable_avnm_routing
+
+  # Service discovery: zone from the platform (null when the env has it off),
+  # external-dns identity, API server VNet integration.
+  private_dns_zone_id          = local.env.enable_private_dns ? lookup(dependency.platform_network.outputs.private_dns_zone_ids, local.env.environment, null) : null
+  public_dns_zone_id           = lookup(dependency.public_dns.outputs.env_zone_ids, local.env.environment, null)
+  enable_external_dns_identity = local.env.enable_external_dns_identity
+  enable_cert_manager_identity = local.env.enable_cert_manager_identity
+  # The vault may not exist yet (first plan of an environment, mocked
+  # dependency): the identity then waits for the next plan after the vault
+  # is applied instead of failing the module's validation.
+  key_vault_id                       = try(dependency.keyvault.outputs.resource_id, null)
+  enable_external_secrets_identity   = local.env.enable_external_secrets_identity && try(dependency.keyvault.outputs.resource_id, null) != null
+  enable_api_server_vnet_integration = local.env.enable_api_server_vnet_integration
 
   kubernetes_version              = local.env.kubernetes_version
   aks_sku_tier                    = local.env.aks_sku_tier
@@ -75,13 +131,10 @@ inputs = {
   enable_log_analytics      = local.env.enable_log_analytics
   log_retention_days        = local.env.log_retention_days
   enable_container_insights = local.env.enable_container_insights
+  enable_managed_prometheus = local.env.enable_managed_prometheus
   enable_defender           = local.env.enable_defender
   enable_azure_policy       = local.env.enable_azure_policy
   enable_telemetry          = local.env.enable_telemetry
 
-  tags = {
-    environment = local.env.environment
-    managed_by  = "terragrunt"
-    project     = "azure-aks-platform"
-  }
+  tags = merge(local.common.common_tags, { Environment = local.env.environment })
 }

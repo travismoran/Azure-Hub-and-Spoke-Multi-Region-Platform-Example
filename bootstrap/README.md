@@ -32,3 +32,12 @@ Notes:
 resource providers the platform needs in every subscription named by
 `ARM_SUBSCRIPTION_ID` / `TG_SUBSCRIPTION_*`. Re-run it whenever a
 subscription is added (e.g. `TG_SUBSCRIPTION_PROD`).
+
+Other one-time scripts here:
+
+- `setup-oidc.sh` - the two GitHub OIDC identities (plan: read-only, deploy:
+  Owner per subscription + management-group/policy roles at `/`) and the
+  repository variables (docs/github-oidc-setup.md).
+- `tenant-access.sh` - rename the management subscription, direct Owner for
+  you on each subscription, and the confirmed trim of your tenant-root
+  roles (docs/subscriptions.md).

@@ -10,6 +10,14 @@ locals {
   # pools and security admin rules.
   environments = ["dev", "prod"]
 
+  # Environments that run outside Azure and get only a public DNS zone
+  # (<name>.<public_dns_parent_zone>), a Key Vault and optionally a Basic
+  # ACR: no subscription, management group, hub or stamp. "local" is a
+  # laptop cluster (e.g. Rancher Desktop / k3s) used to develop Argo CD app
+  # deployments; live/dev/local/local-cluster is its Azure footprint.
+  # Opt in with TG_ENABLE_LOCAL_CLUSTER=true (needs public DNS as well).
+  external_environments = get_env("TG_ENABLE_LOCAL_CLUSTER", "false") == "true" ? ["local"] : []
+
   # Management groups need tenant-root access once (docs/subscriptions.md).
   # false = single-subscription mode: no hierarchy, AVNM scoped to its own
   # subscription.
@@ -36,4 +44,34 @@ locals {
     wus3 = { location = "westus3", root_pool_prefix = "10.16.0.0/12" }
     eus2 = { location = "eastus2", root_pool_prefix = "10.32.0.0/12" }
   }
+
+  # Guardrail policy: stamp VNets must allocate from an environment IPAM
+  # pool. Off until the platform has been applied once; then Audit, and
+  # Deny once the compliance view is clean (docs/network-platform.md).
+  enable_ipam_pool_policy = false
+  ipam_pool_policy_effect = "Audit"
+
+  # Central private DNS zones are svc.<env>.<this> (env.hcl enable_private_dns).
+  private_dns_base_domain = "platform.internal"
+
+  # --- Public DNS (docs/dns.md) ---
+  # One zone per cloud under your organisation's apex (e.g.
+  # azure.example.com), delegated from the registrar once; every
+  # environment gets <env>.azure.example.com delegated from it
+  # automatically. Shared by all environments -> applied with the platform,
+  # treated as production. ~$0.50/zone/month. Off until
+  # TG_PUBLIC_DNS_PARENT_ZONE names a zone you own (a real value, so it
+  # comes from the environment, not Git).
+  enable_public_dns      = get_env("TG_PUBLIC_DNS_PARENT_ZONE", "") != ""
+  public_dns_parent_zone = get_env("TG_PUBLIC_DNS_PARENT_ZONE", "azure.example.com")
+
+  # Credentials for the external environments' zones (live/platform/dns-principals,
+  # docs/identity.md §5): one service principal per external environment with
+  # DNS Zone Contributor on its zone only. Its client secret is the documented
+  # exception to the no-secret rule; 730 days (24 months) is the Entra portal
+  # maximum and Terraform rotates it on the first apply after it elapses.
+  # The deploy pipeline identity is made an owner so it can manage the apps
+  # with Application.ReadWrite.OwnedBy alone.
+  dns_principal_secret_days    = 730
+  dns_principal_owner_sp_names = ["gh-cloud-platform-deploy"]
 }

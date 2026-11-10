@@ -86,6 +86,13 @@ multi-subscription layout and remains fully supported.
    source .env && ./bootstrap/register-providers.sh
    ```
 
+   The same script opts each subscription out of Network Watcher
+   auto-creation (`DisableNetworkWatcherAutocreation`). Azure otherwise
+   drops a free `NetworkWatcherRG/NetworkWatcher_<region>` into the
+   subscription when the first VNet lands in a region, outside Terraform
+   state, so `destroy` leaves it behind (ADR-022). The feature needs a
+   second pass once it reports `Registered`; the script tells you when.
+
 4. **Tenant-root access, once.** Creating management groups under the
    Tenant Root Group and moving subscriptions into them needs rights at the
    root scope, which nobody has by default - not even a Global
@@ -143,3 +150,17 @@ multi-subscription layout and remains fully supported.
 | `mg-<prefix>` | Resource Policy Contributor (in Owner) | membership policy definitions + assignments |
 | IPAM pools | IPAM Pool User (in Contributor) | stamp VNets allocate from the pools |
 | state storage account | Storage Blob Data Contributor | terraform backend (Entra auth, no keys) |
+
+
+## Trimming tenant-root access
+
+Creating the management groups needs tenant-root access once. Afterwards
+`bootstrap/tenant-access.sh` (plan 001) renames the original subscription
+to `management`, gives the signed-in user Owner on each role subscription
+directly, adds Management Group Contributor + Resource Policy Contributor
+at `/`, and - only after confirming those grants and a typed `trim` -
+removes Owner and User Access Administrator at `/`. The deploy identity
+(`bootstrap/setup-oidc.sh`) holds the same two root roles plus Owner per
+subscription, which is what applying `live/platform` needs. Re-elevate any
+time (Global Administrator): `az rest --method post --url
+"https://management.azure.com/providers/Microsoft.Authorization/elevateAccess?api-version=2016-07-01"`.

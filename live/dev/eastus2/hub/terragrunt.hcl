@@ -14,11 +14,12 @@ dependency "remote_hub" {
   config_path = "../../westus3/hub"
 
   mock_outputs = {
-    firewall_private_ip = null
-    location            = "mockregion"
-    resource_group_name = "mock-rg-hub-remote"
-    vnet_id             = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mock-rg-hub-remote/providers/Microsoft.Network/virtualNetworks/mock-vnet-hub-remote"
-    vnet_name           = "mock-vnet-hub-remote"
+    dns_resolver_inbound_ip = null
+    firewall_private_ip     = null
+    location                = "mockregion"
+    resource_group_name     = "mock-rg-hub-remote"
+    vnet_id                 = "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/mock-rg-hub-remote/providers/Microsoft.Network/virtualNetworks/mock-vnet-hub-remote"
+    vnet_name               = "mock-vnet-hub-remote"
   }
   mock_outputs_allowed_terraform_commands = ["init", "validate", "plan"]
 }

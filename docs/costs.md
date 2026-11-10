@@ -23,9 +23,16 @@ for current numbers.
 | Container registry | ACR Basic | 5 | ACR Premium | 50 |
 | Log Analytics | off | 0 | on, ~10 GB/day | ~830 |
 | Container insights | off | 0 | on | (in LAW ingest) |
+| Managed Prometheus (`enable_managed_prometheus`) | off | 0 | on | workspace free; ~$0.16 per 10M samples |
 | Defender for Containers | off | 0 | on (~$7/vCPU) | ~250 |
 | Azure Policy addon | off | 0 | on | 0 |
 | AVM telemetry | off | 0 | off | 0 |
+| Central private DNS zone + external-dns identity (`enable_private_dns`) | off | 0 | off | ~0.50/zone + $0.40/M queries |
+| Public DNS (`live/platform/dns`: parent + 1 zone per env) | on (platform) | ~1.50 total | on | (shared) |
+| External environment registry (`local-cluster` `enable_acr`, local) | ACR Basic | 5 | - | - |
+| API server VNet integration (`enable_api_server_vnet_integration`) | off | 0 | off | 0 |
+| DNS Private Resolver inbound endpoint (`enable_dns_resolver`) | off | 0 | off | ~180/hub |
+| Bastion (`enable_bastion`) | off | 0 | off | ~140 Basic (Developer SKU free, region-limited) |
 | **Total** | | **~$75-100** | | **~$3,000+** |
 
 \* Off by default (`enable_firewall = false` in `live/dev/env.hcl`) for the
@@ -33,7 +40,8 @@ for current numbers.
 (see architecture.md) - UDRs, firewall routes, and transit rules activate
 automatically. Verified end-to-end 2026-07-21.
 
-\** Off by default (`enable_avnm = false`). AVNM bills ~$0.10/hr per
+\** On in dev here (`enable_avnm = true`, ~+$75/mo per region, ADR-014) so dev
+exercises the mesh. AVNM bills ~$0.10/hr per
 *managed* VNet - one that has a deployed configuration, i.e. each stamp VNet
 in the mesh, not the hubs - plus a small fee per active IP in an IPAM pool
 (every node NIC). The AVNM instance, empty pools, management groups and
@@ -69,8 +77,12 @@ but nothing forces you to apply more than `dev/westus3`.
 
 ## Cheapskate tips while developing
 
-- `az aks stop --name <cluster> --resource-group <rg>` deallocates all node
-  pools overnight; `az aks start` brings the cluster back.
+- `scripts/aks-power.sh stop dev` deallocates every dev cluster's node pools
+  (and `start` brings them back); `.github/workflows/aks-schedule.yml` does
+  it on a schedule once the `AKS_SCHEDULE_ENABLED` repository variable is
+  `true` (stop 02:00 UTC daily, start 13:00 UTC Mon-Fri).
+- Additional stamps (`aks-spoke-2`, ...) are excluded from `run --all` until
+  `enable_extra_stamps = true`, so the folder can exist without costing.
 - The Spot user pool autoscales from **zero** - an idle dev cluster runs on a
   single D2s_v6.
 - `terragrunt run --all destroy` in `live/dev/<region>` tears everything down;

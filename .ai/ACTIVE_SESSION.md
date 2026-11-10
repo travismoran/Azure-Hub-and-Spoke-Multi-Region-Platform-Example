@@ -1,6 +1,16 @@
 # ACTIVE SESSION - read me first
 
-Last updated: 2026-11-07 (EVERYTHING from plans 003/004 destroyed - nothing deployed)
+Last updated: 2026-11-10 (back-port from a private deployment, ADR-013; still nothing deployed)
+
+## 2026-11-10: back-port (branch feat/port-from-internal)
+
+ADR-014..026 and their code came back from a private deployment of this
+example, every real value replaced (example.com, your-org, demo, app-a /
+app-b, `local`). New opt-in env vars: `TG_PUBLIC_DNS_PARENT_ZONE` (public
+DNS off when empty) and `TG_ENABLE_LOCAL_CLUSTER` (external environment
+`local`, unit `live/dev/local/local-cluster` excluded until true). All of
+it validates offline; none of it has been applied from this repo - see
+the "Live-verify" backlog item.
 
 ## 🚨 Live infrastructure & money meter
 

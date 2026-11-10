@@ -1,8 +1,7 @@
 module "acr" {
   count = var.enable_acr ? 1 : 0
 
-  source  = "Azure/avm-res-containerregistry-registry/azurerm"
-  version = "0.5.1"
+  source = "git::https://github.com/Azure/terraform-azurerm-avm-res-containerregistry-registry.git?ref=a3f2ae1622b43a69d1c8554beca673bb3fada65c" # v0.5.1
 
   name                = local.acr_name
   location            = var.location

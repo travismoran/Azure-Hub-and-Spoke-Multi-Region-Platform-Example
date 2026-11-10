@@ -36,6 +36,17 @@ locals {
   }
 
   scope_is_mg = var.management_group_id != null
+
+  # Environments whose stamps get a default route to their regional hub
+  # firewall pushed by AVNM (routing.tf).
+  routing_envs = { for k, e in local.envs : k => e if e.routing && e.firewall }
+  routing_env_regions = {
+    for key, r in local.env_regions : key => r if contains(keys(local.routing_envs), r.env)
+  }
+
+  # Environments with a central private DNS zone (dns.tf). Independent of
+  # var.enabled: the zone is useful without AVNM.
+  dns_envs = { for k, e in var.environments : k => e if e.private_dns }
 }
 
 data "azurerm_subscription" "current" {}
@@ -55,7 +66,7 @@ resource "azurerm_network_manager" "this" {
   location            = var.location
   resource_group_name = azurerm_resource_group.avnm[0].name
   description         = "Network platform for the AKS stamps: IPAM, per-environment global mesh, security admin."
-  scope_accesses      = ["Connectivity", "SecurityAdmin"]
+  scope_accesses      = concat(["Connectivity", "SecurityAdmin"], length(local.routing_envs) > 0 ? ["Routing"] : [])
   tags                = var.tags
 
   scope {

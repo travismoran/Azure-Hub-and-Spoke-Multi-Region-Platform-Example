@@ -31,8 +31,12 @@ locals {
   # unit's path (e.g. "dev/westus3/aks-spoke", "platform/network"):
   #   management-groups  -> management     (tenant-level resources; any sub works)
   #   network (platform) -> connectivity   (AVNM, IPAM pools)
+  #   dns (platform)     -> connectivity   (public DNS zones)
+  #   dns-principals     -> connectivity   (role assignments on those zones)
   #   hub                -> connectivity   (hub VNets, firewalls; all envs)
   #   aks-spoke          -> TG_SUBSCRIPTION_<ENV> (the environment's stamps)
+  #   local-cluster      -> TG_SUBSCRIPTION_<ENV> (Key Vault + ESO principal of an external environment)
+  #   keyvault           -> TG_SUBSCRIPTION_<ENV> (the environment's secret store)
   # Unset variables fall back to ARM_SUBSCRIPTION_ID; all unset means the
   # provider block carries no subscription (offline validation only).
   unit_path = path_relative_to_include()
@@ -42,10 +46,24 @@ locals {
   subscription_by_unit = {
     management-groups = local.management_subscription
     network           = get_env("TG_SUBSCRIPTION_CONNECTIVITY", local.default_subscription)
+    dns               = get_env("TG_SUBSCRIPTION_CONNECTIVITY", local.default_subscription)
+    dns-principals    = get_env("TG_SUBSCRIPTION_CONNECTIVITY", local.default_subscription)
     hub               = get_env("TG_SUBSCRIPTION_CONNECTIVITY", local.default_subscription)
     aks-spoke         = get_env("TG_SUBSCRIPTION_${upper(local.unit_env)}", local.default_subscription)
+    local-cluster     = get_env("TG_SUBSCRIPTION_${upper(local.unit_env)}", local.default_subscription)
+    keyvault          = get_env("TG_SUBSCRIPTION_${upper(local.unit_env)}", local.default_subscription)
   }
   subscription_id = lookup(local.subscription_by_unit, local.unit_name, local.default_subscription)
+
+  # --- Standard tags -----------------------------------------------------
+  # Applied to every resource by the _envcommon files, which read this file
+  # with read_terragrunt_config(...).locals.common_tags and add Environment.
+  # Owner is an env var so that no person's name or email is committed.
+  common_tags = {
+    Owner      = get_env("TG_OWNER", "platform-team")
+    ManagedBy  = "Terragrunt"
+    Repository = "<owner>/<repo>"
+  }
 }
 
 remote_state {

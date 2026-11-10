@@ -182,3 +182,23 @@ Two conventions worth knowing:
   role assignment.
 - Defender, container insights, and diagnostic settings are off in dev purely
   for cost - flip the toggles in `env.hcl` for anything real.
+
+
+## DNS
+
+Public: `azure.example.com` with one delegated child zone per
+environment, created once from `live/platform/dns`; private:
+`svc.<env>.platform.internal` per environment behind `enable_private_dns`.
+See [dns.md](dns.md).
+
+## Optional layers
+
+Egress via the hub firewall (per-stamp UDR or AVNM routing), the
+approved-pool policy, central private DNS with per-stamp external-dns
+identities, DNS Private Resolver, Bastion, API server VNet integration and
+additional stamps per region are all toggles that default to off; they are
+described in [network-platform.md](network-platform.md) ("Optional layers")
+and priced in [costs.md](costs.md). Additional stamps are folders
+(`aks-spoke-2`, ...) whose name becomes the `-2` suffix on every resource
+and the `stamp-id` tag; they stay excluded from `run --all` until
+`enable_extra_stamps = true`.
