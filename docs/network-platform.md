@@ -164,3 +164,61 @@ group; `modules/management-groups` does it.
   pick it up when they join.
 - Fleet Manager cross-cluster networking as a later service-discovery layer
   normally needs unique pod CIDRs; this repo reuses one overlay CIDR.
+
+
+## Optional layers (all off by default)
+
+Added 2026-11-07 (ADR-016/017); none has been applied yet. Each is a toggle
+in `env.hcl` or `platform.hcl`, and the modules validate with them on.
+
+### Egress through the hub firewall
+
+`aks_outbound_type = "userDefinedRouting"` (requires `enable_firewall`):
+the stamp's node route table gets `0.0.0.0/0 → hub firewall` and the hub's
+firewall policy gets the AKS required-egress collection (`rcg-aks-egress`:
+FQDN tag `AzureKubernetesService`, tunnel ports 1194/9000 to
+`AzureCloud.<region>`, NTP, common registries). The LB public IP stays for
+inbound only. With `enable_avnm_routing = true` on top, the default route is
+instead pushed by an AVNM **routing configuration** in `UseExisting` mode:
+one per environment, with a rule collection per env/region bound to a
+regional network group (`ng-stamps-<env>-<region>`, membership by tags +
+location) whose next hop is that region's deterministic firewall IP. The
+stamp module then skips its own default route. Either way the mesh stays
+the east-west path; routing only moves north-south.
+
+### Approved-pool policy
+
+`enable_ipam_pool_policy` (platform.hcl) assigns a custom policy at the AVNM
+scope: any VNet tagged `role=aks-stamp` whose address space is not allocated
+from one of the environment IPAM pools is non-compliant. Alias:
+`Microsoft.Network/virtualnetworks/addressSpace.ipamPoolPrefixAllocations[*].pool.id`.
+`ipam_pool_policy_effect` starts at `Audit`; switch to `Deny` once the
+compliance view is clean.
+
+### Service discovery: central private DNS
+
+`enable_private_dns` (env.hcl) creates `svc.<env>.platform.internal` in
+`rg-dns-platform` (connectivity subscription). Every hub and stamp links its
+own VNet to the zone from its own state (by zone ID, via azapi because the
+link crosses subscriptions), so adding a stamp never touches the platform
+state. Inside Azure that is enough: Azure DNS answers for linked zones.
+`enable_external_dns_identity` adds a workload identity per stamp
+(`id-external-dns-<stamp-id>`, federated to the cluster's OIDC issuer for
+`external-dns/external-dns`) with Private DNS Zone Contributor on the zone
+and Reader on `rg-dns-platform`; the client ID is the stamp output
+`external_dns_client_id`. `enable_dns_resolver` (hub) adds a DNS Private
+Resolver inbound endpoint (`snet-dns-inbound`, output
+`dns_resolver_inbound_ip`) for on-prem/VPN clients.
+
+### API server VNet integration
+
+`enable_api_server_vnet_integration` carves `snet-apiserver` (/28, offset
+.0.128, delegated to AKS) and projects the API server into the stamp VNet.
+Nodes reach the control plane privately without a private cluster.
+
+### Caller policies
+
+See `catalog/README.md`: `catalog/stamps.json` says which stamps may call
+which; `scripts/gen-cilium-caller-policies.sh` renders a
+CiliumClusterwideNetworkPolicy per stamp from the stamps' unique node
+subnets.

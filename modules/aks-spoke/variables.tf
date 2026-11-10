@@ -23,6 +23,17 @@ variable "name_prefix" {
   }
 }
 
+variable "stamp_suffix" {
+  description = "Distinguishes additional stamps in the same environment and region: \"\" for the first (aks-spoke), \"-2\" for aks-spoke-2, ... Appended to every resource name and to the stamp-id tag."
+  type        = string
+  default     = ""
+
+  validation {
+    condition     = can(regex("^(-[a-z0-9]{1,8})?$", var.stamp_suffix))
+    error_message = "stamp_suffix must be empty or a dash followed by 1-8 lowercase alphanumerics (e.g. \"-2\")."
+  }
+}
+
 # ---------------------------------------------------------------------------
 # Networking
 # ---------------------------------------------------------------------------
@@ -111,13 +122,114 @@ variable "dns_service_ip" {
 }
 
 variable "outbound_type" {
-  description = "AKS egress method. loadBalancer is the cheapest; userDefinedRouting requires a hub firewall and route tables."
+  description = "AKS egress method. loadBalancer is the cheapest; userDefinedRouting sends all internet-bound node traffic to the hub firewall (requires firewall_private_ip and the hub's AKS egress rules)."
   type        = string
   default     = "loadBalancer"
 
   validation {
     condition     = contains(["loadBalancer", "managedNATGateway", "userDefinedRouting"], var.outbound_type)
     error_message = "outbound_type must be loadBalancer, managedNATGateway, or userDefinedRouting."
+  }
+
+  validation {
+    condition     = var.outbound_type != "userDefinedRouting" || var.firewall_private_ip != null
+    error_message = "outbound_type = userDefinedRouting requires a hub firewall (firewall_private_ip)."
+  }
+}
+
+variable "avnm_routing" {
+  description = "True when the network platform pushes the default route into this stamp's route table via an AVNM routing configuration (env.hcl enable_avnm_routing); the module then does not create its own 0.0.0.0/0 route."
+  type        = bool
+  default     = false
+}
+
+variable "enable_api_server_vnet_integration" {
+  description = "Project the API server into the stamp VNet (.0.128/28, delegated to AKS): nodes and pods reach it over private IPs without a private cluster. Free; changing it on a live cluster is an update, not a recreate."
+  type        = bool
+  default     = false
+}
+
+variable "private_dns_zone_id" {
+  description = "Resource ID of the environment's central private DNS zone (output private_dns_zone_ids of modules/platform-network). When set, the stamp VNet is linked to it; required for enable_external_dns_identity."
+  type        = string
+  default     = null
+}
+
+variable "public_dns_zone_id" {
+  description = "Resource ID of the environment's public DNS zone (<env>.azure.<org>, output env_zone_ids of modules/public-dns). When set together with enable_external_dns_identity, external-dns may also publish public records there."
+  type        = string
+  default     = null
+}
+
+variable "enable_external_dns_identity" {
+  description = "Create a workload identity for external-dns (user-assigned identity + federated credential for the cluster's OIDC issuer) with Private DNS Zone Contributor on the zone and Reader on its resource group. Free."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_external_dns_identity || var.private_dns_zone_id != null || var.public_dns_zone_id != null
+    error_message = "enable_external_dns_identity requires private_dns_zone_id and/or public_dns_zone_id."
+  }
+}
+
+variable "external_dns_service_account" {
+  description = "namespace/name of the Kubernetes service account external-dns runs as (the federated credential subject)."
+  type        = string
+  default     = "external-dns/external-dns"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+/[a-z0-9-]+$", var.external_dns_service_account))
+    error_message = "external_dns_service_account must be namespace/name."
+  }
+}
+
+variable "enable_cert_manager_identity" {
+  description = "Create a workload identity for cert-manager (DNS-01 challenges) with DNS Zone Contributor on the environment's public zone. Free; requires public_dns_zone_id."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_cert_manager_identity || var.public_dns_zone_id != null
+    error_message = "enable_cert_manager_identity requires public_dns_zone_id."
+  }
+}
+
+variable "cert_manager_service_account" {
+  description = "namespace/name of the Kubernetes service account cert-manager's controller runs as (the federated credential subject)."
+  type        = string
+  default     = "cert-manager/cert-manager"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+/[a-z0-9-]+$", var.cert_manager_service_account))
+    error_message = "cert_manager_service_account must be namespace/name."
+  }
+}
+
+variable "key_vault_id" {
+  description = "Resource ID of the environment's Key Vault (output resource_id of modules/key-vault via live/<env>/keyvault). Required for enable_external_secrets_identity."
+  type        = string
+  default     = null
+}
+
+variable "enable_external_secrets_identity" {
+  description = "Create a workload identity for External Secrets Operator with Key Vault Secrets User on the environment's vault. Free; requires key_vault_id."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_external_secrets_identity || var.key_vault_id != null
+    error_message = "enable_external_secrets_identity requires key_vault_id."
+  }
+}
+
+variable "external_secrets_service_account" {
+  description = "namespace/name of the Kubernetes service account External Secrets Operator runs as (the federated credential subject)."
+  type        = string
+  default     = "external-secrets/external-secrets"
+
+  validation {
+    condition     = can(regex("^[a-z0-9-]+/[a-z0-9-]+$", var.external_secrets_service_account))
+    error_message = "external_secrets_service_account must be namespace/name."
   }
 }
 
@@ -257,6 +369,17 @@ variable "enable_container_insights" {
   validation {
     condition     = !var.enable_container_insights || var.enable_log_analytics
     error_message = "enable_container_insights requires enable_log_analytics = true."
+  }
+}
+
+variable "enable_managed_prometheus" {
+  description = "Create an Azure Monitor workspace (managed Prometheus) and onboard the cluster's metrics into it together with container insights (the AVM module's onboard_monitoring). Workspace is free; metrics ingestion is billed per sample. Requires enable_container_insights."
+  type        = bool
+  default     = false
+
+  validation {
+    condition     = !var.enable_managed_prometheus || var.enable_container_insights
+    error_message = "enable_managed_prometheus requires enable_container_insights = true."
   }
 }
 

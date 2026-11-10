@@ -1,0 +1,14 @@
+# terraform-docs configuration for modules/*/README.md (scripts/lint.sh docs).
+formatter: markdown table
+output:
+  file: README.md
+  mode: replace
+sort:
+  enabled: true
+  by: required
+settings:
+  anchor: false
+  hide-empty: true
+  # Lock files are gitignored, so never read them: CI (no lock file) and a
+  # developer machine (with one) must render the same provider table.
+  lockfile: false

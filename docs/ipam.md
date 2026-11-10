@@ -51,7 +51,7 @@ every subnet.
 | Subnet              | Size       | Offset    | `cidrsubnet(vnet, bits, n)` | Purpose |
 |---------------------|------------|-----------|-----------------------------|---------|
 | `snet-aks-system`   | /25 (128)  | .0.0      | `(…, 3, 0)`                 | System node pool, ~120 nodes with surge |
-| *reserved*          | /28 (16)   | .0.128    | `(…, 6, 8)`                 | API server VNet integration (not created) |
+| `snet-apiserver`    | /28 (16)   | .0.128    | `(…, 6, 8)`                 | API server VNet integration, delegated to AKS (`enable_api_server_vnet_integration`; otherwise reserved) |
 | `snet-ilb`          | /27 (32)   | .0.160    | `(…, 5, 5)`                 | Internal load balancer frontends other stamps call over the mesh |
 | *reserved*          | /27 (32)   | .0.192    | `(…, 5, 6)`                 | Private Link Service NAT IPs (not created) |
 | *spare*             | /27 (32)   | .0.224    | `(…, 5, 7)`                 | |
@@ -64,17 +64,21 @@ for network policies in other stamps (`node_subnet_prefixes` output).
 
 ## Inside the hub /22
 
-Carved automatically by `modules/hub` when the firewall is enabled:
+Carved by `modules/hub`, each behind its toggle; the first /24 of the hub
+range is laid out as four /26s:
 
-| Subnet                        | CIDR (first /26s of the hub range) |
-|-------------------------------|------------------------------------|
-| AzureFirewallSubnet           | `cidrsubnet(hub, 4, 0)` → 10.x.y.0/26  |
-| AzureFirewallManagementSubnet | `cidrsubnet(hub, 4, 1)` → 10.x.y.64/26 |
+| Subnet                        | CIDR                                     | Toggle |
+|-------------------------------|------------------------------------------|--------|
+| AzureFirewallSubnet           | `cidrsubnet(hub, 4, 0)` → 10.x.y.0/26    | `enable_firewall` |
+| AzureFirewallManagementSubnet | `cidrsubnet(hub, 4, 1)` → 10.x.y.64/26   | `enable_firewall` (Basic SKU needs it) |
+| snet-dns-inbound              | `cidrsubnet(hub, 6, 8)` → 10.x.y.128/28  | `enable_dns_resolver` (delegated to Microsoft.Network/dnsResolvers) |
+| AzureBastionSubnet            | `cidrsubnet(hub, 4, 3)` → 10.x.y.192/26  | `enable_bastion` with a SKU other than Developer |
 
 Firewall private IPs are deterministic - the first host (.4) of
 AzureFirewallSubnet: dev 10.0.0.4 (westus3) / 10.1.0.4 (eastus2), prod
-10.0.4.4 / 10.1.4.4. The rest of each /22 is spare for future hub services
-(Bastion, VPN gateway, DNS Private Resolver, ...).
+10.0.4.4 / 10.1.4.4. The AVNM routing rules (`enable_avnm_routing`) are
+derived from the same arithmetic. The remaining three /24s of each hub /22
+are spare (VPN gateway, future services).
 
 ## Cluster-internal ranges (identical in every cluster)
 

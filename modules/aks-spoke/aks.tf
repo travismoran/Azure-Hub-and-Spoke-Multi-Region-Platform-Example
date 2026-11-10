@@ -1,13 +1,23 @@
+locals {
+  # null unless something in it is set: the AVM module dereferences the
+  # object, and an all-null profile changes the API payload.
+  api_server_access_profile = (var.private_cluster_enabled || length(var.api_server_authorized_ip_ranges) > 0 || var.enable_api_server_vnet_integration) ? {
+    enable_private_cluster  = var.private_cluster_enabled ? true : null
+    authorized_ip_ranges    = var.private_cluster_enabled || length(var.api_server_authorized_ip_ranges) == 0 ? null : var.api_server_authorized_ip_ranges
+    enable_vnet_integration = var.enable_api_server_vnet_integration ? true : null
+    subnet_id               = var.enable_api_server_vnet_integration ? module.subnet["apiserver"].resource_id : null
+  } : null
+}
+
 module "aks" {
-  source  = "Azure/avm-res-containerservice-managedcluster/azurerm"
-  version = "0.6.7"
+  source = "git::https://github.com/Azure/terraform-azurerm-avm-res-containerservice-managedcluster.git?ref=2d0302e9d8c450df2d1b257c32823b00b3557c96" # v0.6.7
 
   name                = local.cluster_name
   location            = var.location
   parent_id           = azurerm_resource_group.spoke.id
   dns_prefix          = local.cluster_name
   kubernetes_version  = var.kubernetes_version
-  node_resource_group = "rg-aks-nodes-${var.environment}-${var.region_short}"
+  node_resource_group = "rg-aks-nodes-${var.environment}-${var.region_short}${local.suffix}"
   enable_telemetry    = var.enable_telemetry
   tags                = var.tags
 
@@ -22,10 +32,7 @@ module "aks" {
     admin_group_object_ids = var.admin_group_object_ids
   }
 
-  api_server_access_profile = (var.private_cluster_enabled || length(var.api_server_authorized_ip_ranges) > 0) ? {
-    enable_private_cluster = var.private_cluster_enabled ? true : null
-    authorized_ip_ranges   = var.private_cluster_enabled ? null : var.api_server_authorized_ip_ranges
-  } : null
+  api_server_access_profile = local.api_server_access_profile
 
   oidc_issuer_profile = {
     enabled = var.enable_workload_identity
@@ -94,7 +101,11 @@ module "aks" {
       use_aad_auth                        = true
     }
   } : null
-  onboard_monitoring = var.enable_container_insights
+  # onboard_monitoring wires Prometheus + container insights data collection;
+  # it needs the Azure Monitor workspace, so it follows that toggle. The OMS
+  # agent addon above is enough for container insights alone.
+  onboard_monitoring      = var.enable_managed_prometheus
+  prometheus_workspace_id = var.enable_managed_prometheus ? azurerm_monitor_workspace.prometheus[0].id : null
 }
 
 # BYO-VNet requirement: the cluster's control-plane identity must be able to

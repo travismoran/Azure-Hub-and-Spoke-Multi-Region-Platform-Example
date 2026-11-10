@@ -57,7 +57,10 @@ the other environments' deny rules, because their stamps use those ranges
 statically.
 DESC
   type = map(object({
-    enabled = bool
+    enabled     = bool
+    firewall    = optional(bool, false) # hubs carry a firewall (env.hcl enable_firewall)
+    routing     = optional(bool, false) # AVNM pushes 0/0 -> regional hub firewall into stamp route tables (env.hcl enable_avnm_routing)
+    private_dns = optional(bool, false) # central private DNS zone svc.<env>.<base> (env.hcl enable_private_dns)
     regions = map(object({
       stamp_pool_prefix = string
       hub_address_space = list(string)
@@ -70,6 +73,34 @@ DESC
   }
 }
 
+variable "enable_ipam_pool_policy" {
+  description = <<DESC
+Assign an Azure Policy at the AVNM scope that flags (Audit) or blocks (Deny)
+any VNet tagged role=aks-stamp whose address space is not allocated from
+one of the environment IPAM pools - i.e. a stamp that bypassed IPAM with a
+static prefix. Start with Audit; switch to Deny once compliance is clean.
+DESC
+  type        = bool
+  default     = false
+}
+
+variable "ipam_pool_policy_effect" {
+  description = "Effect of the approved-pool policy: Audit or Deny."
+  type        = string
+  default     = "Audit"
+
+  validation {
+    condition     = contains(["Audit", "Deny"], var.ipam_pool_policy_effect)
+    error_message = "ipam_pool_policy_effect must be Audit or Deny."
+  }
+}
+
+variable "private_dns_base_domain" {
+  description = "Base of the per-environment central private DNS zones: svc.<env>.<base>. Zones are created in rg-dns-platform for every environment with private_dns = true."
+  type        = string
+  default     = "platform.internal"
+}
+
 variable "high_risk_inbound_ports" {
   description = "TCP ports denied inbound from the Internet service tag on every stamp VNet."
   type        = list(string)
@@ -80,4 +111,10 @@ variable "tags" {
   description = "Tags applied to all network platform resources."
   type        = map(string)
   default     = {}
+}
+
+variable "enable_telemetry" {
+  description = "Enable AVM module telemetry. Off by default: no phone-home from this platform."
+  type        = bool
+  default     = false
 }

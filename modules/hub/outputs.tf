@@ -2,6 +2,11 @@
 # terragrunt dependency block. Keep them in sync with the mock_outputs in
 # live/_envcommon/aks-spoke.hcl.
 
+output "dns_resolver_inbound_ip" {
+  description = "Private IP of the DNS Private Resolver inbound endpoint (the DNS server to point on-prem forwarders at), or null when disabled."
+  value       = var.enable_dns_resolver ? module.dns_resolver[0].inbound_endpoint_ips["hub"] : null
+}
+
 output "firewall_private_ip" {
   description = "Private IP of the hub firewall, or null when the firewall is disabled."
   value       = module.hub.virtual_networks["hub"].hub_router_ip_address

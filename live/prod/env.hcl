@@ -36,6 +36,14 @@ locals {
   # --- Hub ---
   enable_firewall   = true
   firewall_sku_tier = "Standard"
+  # Intended end state is userDefinedRouting + enable_avnm_routing (all egress
+  # inspected by the firewall); both stay off until verified in dev with a
+  # firewall (ADR-016).
+  aks_outbound_type   = "loadBalancer"
+  enable_avnm_routing = false
+  enable_dns_resolver = false
+  enable_bastion      = false
+  bastion_sku         = "Basic"
 
   # --- Network platform: AVNM + IPAM + global mesh (docs/network-platform.md) ---
   # prod stamps are IPAM-allocated and meshed; dev's pools are denied
@@ -43,6 +51,21 @@ locals {
   enable_avnm         = true
   regions             = ["westus3", "eastus2"]
   stamp_prefix_length = 22
+  enable_extra_stamps = false
+
+  # --- Service discovery across stamps ---
+  enable_private_dns = false
+  # Workload identities per stamp (free): external-dns and cert-manager write
+  # the environment's public zone, External Secrets reads the environment's
+  # Key Vault (live/<env>/keyvault). Client IDs are stamp outputs that go into
+  # the manifests repo overlays.
+  enable_external_dns_identity     = true
+  enable_cert_manager_identity     = true
+  enable_external_secrets_identity = true
+  # Environment Key Vault (modules/key-vault, ~$0.03/10k operations).
+  key_vault_purge_protection         = true # prod: cannot be disabled once on
+  key_vault_soft_delete_days         = 90
+  enable_api_server_vnet_integration = false
 
   # --- Optional components ---
   enable_acr                = true
@@ -50,6 +73,7 @@ locals {
   enable_log_analytics      = true
   log_retention_days        = 90
   enable_container_insights = true
+  enable_managed_prometheus = true
   enable_defender           = true
   enable_azure_policy       = true
   enable_telemetry          = false

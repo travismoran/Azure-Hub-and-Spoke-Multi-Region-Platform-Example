@@ -1,0 +1,41 @@
+# Dev clusters off overnight: stop at 02:00 UTC every day, start at 13:00 UTC
+# Monday-Friday (clusters stay stopped over the weekend). Off until the
+# repository variable AKS_SCHEDULE_ENABLED is "true". Uses the deploy
+# identity (docs/github-oidc-setup.md); only ever touches clusters tagged
+# Environment=dev, ManagedBy=Terragrunt.
+name: aks-schedule
+
+on:
+  schedule:
+    - cron: "0 2 * * *"    # stop
+    - cron: "0 13 * * 1-5" # start
+  workflow_dispatch:
+    inputs:
+      action:
+        type: choice
+        options: [stop, start]
+        required: true
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  power:
+    runs-on: ubuntu-latest
+    if: vars.AKS_SCHEDULE_ENABLED == 'true' && vars.AZURE_CLIENT_ID != ''
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.TG_SUBSCRIPTION_DEV || vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Stop or start dev clusters
+        env:
+          TG_SUBSCRIPTION_DEV: ${{ vars.TG_SUBSCRIPTION_DEV || vars.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          if [[ -n "${{ inputs.action }}" ]]; then action="${{ inputs.action }}"
+          elif [[ "${{ github.event.schedule }}" == "0 2 * * *" ]]; then action=stop
+          else action=start; fi
+          scripts/aks-power.sh "${action}" dev

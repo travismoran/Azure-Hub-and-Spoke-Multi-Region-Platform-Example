@@ -1,0 +1,10 @@
+{
+  "dev": {
+    "demo-dev-eus2": { "allow_from": ["demo-dev-wus3"] },
+    "demo-dev-wus3": { "allow_from": ["demo-dev-eus2"] }
+  },
+  "prod": {
+    "demo-prod-eus2": { "allow_from": ["demo-prod-wus3"] },
+    "demo-prod-wus3": { "allow_from": ["demo-prod-eus2"] }
+  }
+}

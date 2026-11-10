@@ -10,7 +10,16 @@
   Same for `modules/platform-network/outputs.tf` → the `platform_network`
   mock_outputs in `live/_envcommon/aks-spoke.hcl`, and
   `modules/management-groups/outputs.tf` → the `management_groups`
-  mock_outputs in `live/_envcommon/platform-network.hcl`.
+  mock_outputs in `live/_envcommon/platform-network.hcl`, and
+  `modules/public-dns/outputs.tf` → the `public_dns` mock_outputs in
+  `live/_envcommon/aks-spoke.hcl` and `live/_envcommon/public-dns-principals.hcl`,
+  `modules/public-dns-principals/outputs.tf` → `live/_envcommon/local-cluster.hcl`,
+  and `modules/key-vault/outputs.tf` → the `keyvault` mock_outputs in
+  `live/_envcommon/aks-spoke.hcl`.
+- A module that calls a sibling (`../service-principal`, `../key-vault`,
+  `../workload-identity`) must be referenced from terragrunt as
+  `modules//<name>` (double slash), or the copy into `.terragrunt-cache`
+  lacks the sibling.
 - `live/platform/network` is an external dependency of every spoke: apply
   `live/platform` first, then `live/<env>` (or `--queue-include-external`).
 - Subscription placement lives only in `live/root.hcl` (unit path →

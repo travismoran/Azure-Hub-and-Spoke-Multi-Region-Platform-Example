@@ -9,6 +9,7 @@
 
 locals {
   platform = read_terragrunt_config(find_in_parent_folders("platform.hcl")).locals
+  common   = read_terragrunt_config(find_in_parent_folders("root.hcl")).locals
   live_dir = dirname(find_in_parent_folders("root.hcl"))
 
   env_cfgs = { for e in local.platform.environments : e => read_terragrunt_config("${local.live_dir}/${e}/env.hcl").locals }
@@ -18,7 +19,10 @@ locals {
 
   environments = {
     for e, cfg in local.env_cfgs : e => {
-      enabled = cfg.enable_avnm
+      enabled     = cfg.enable_avnm
+      firewall    = cfg.enable_firewall
+      routing     = cfg.enable_avnm_routing
+      private_dns = cfg.enable_private_dns
       regions = {
         for rc in local.region_cfgs[e] : rc.region_short => {
           stamp_pool_prefix = rc.stamp_pool_prefix
@@ -57,8 +61,9 @@ inputs = {
   regions             = local.platform.regions
   environments        = local.environments
 
-  tags = {
-    managed_by = "terragrunt"
-    project    = "azure-aks-platform"
-  }
+  enable_ipam_pool_policy = local.platform.enable_ipam_pool_policy
+  ipam_pool_policy_effect = local.platform.ipam_pool_policy_effect
+  private_dns_base_domain = local.platform.private_dns_base_domain
+
+  tags = merge(local.common.common_tags, { Environment = "platform" })
 }

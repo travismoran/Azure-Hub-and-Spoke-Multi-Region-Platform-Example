@@ -1,0 +1,111 @@
+# Gated apply. Manually dispatched, main branch only, one layer at a time,
+# and the operator must type the target's name into `confirm` for an apply
+# to run. Order matters: platform → dev → prod (live/platform/network is an
+# external dependency of every stamp).
+#
+# Each target runs in the GitHub Environment of the same name (created by
+# bootstrap/setup-oidc.sh): deployments are restricted to main and the
+# OIDC subject becomes <subject prefix>:environment:<target>. The typed
+# confirm is the apply guard; add required reviewers to the environments
+# if your plan supports them (public repos, or GitHub Enterprise for
+# private ones).
+#
+# Auth is GitHub OIDC (docs/github-oidc-setup.md); the deploy identity needs
+# Contributor + User Access Administrator (or Owner) where it applies, not
+# just Reader.
+name: deploy
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Layer to deploy"
+        required: true
+        type: choice
+        options: [platform, dev, prod]
+      action:
+        description: "plan or apply"
+        required: true
+        type: choice
+        default: plan
+        options: [plan, apply]
+      confirm:
+        description: "For apply: type the target name again (e.g. prod)"
+        required: false
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: tg-${{ inputs.target }} # shared with plan.yml: one terragrunt run per layer at a time
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: 1.15.8
+  TERRAGRUNT_VERSION: 1.1.1
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: ${{ inputs.action }} ${{ inputs.target }}
+    if: vars.AZURE_CLIENT_ID != ''
+    environment: ${{ inputs.target }}
+    steps:
+      - name: Guard rails
+        run: |
+          if [[ "${{ github.ref }}" != "refs/heads/main" ]]; then
+            echo "::error::deploy runs from main only (got ${{ github.ref }})"; exit 1
+          fi
+          if [[ "${{ inputs.action }}" == "apply" && "${{ inputs.confirm }}" != "${{ inputs.target }}" ]]; then
+            echo "::error::apply requires confirm == target (${{ inputs.target }})"; exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Install terragrunt
+        run: |
+          curl -sL -o /usr/local/bin/terragrunt \
+            "https://github.com/gruntwork-io/terragrunt/releases/download/v${TERRAGRUNT_VERSION}/terragrunt_linux_amd64"
+          chmod +x /usr/local/bin/terragrunt
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Terragrunt ${{ inputs.action }}
+        working-directory: live/${{ inputs.target }}
+        env:
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+          TG_SUBSCRIPTION_MANAGEMENT: ${{ vars.TG_SUBSCRIPTION_MANAGEMENT }}
+          TG_SUBSCRIPTION_CONNECTIVITY: ${{ vars.TG_SUBSCRIPTION_CONNECTIVITY }}
+          TG_SUBSCRIPTION_DEV: ${{ vars.TG_SUBSCRIPTION_DEV }}
+          TG_SUBSCRIPTION_PROD: ${{ vars.TG_SUBSCRIPTION_PROD }}
+          TG_STATE_RESOURCE_GROUP: ${{ vars.TG_STATE_RESOURCE_GROUP }}
+          TG_STATE_STORAGE_ACCOUNT: ${{ vars.TG_STATE_STORAGE_ACCOUNT }}
+          TG_STATE_CONTAINER: ${{ vars.TG_STATE_CONTAINER || 'tfstate' }}
+          TG_NAME_PREFIX: ${{ vars.TG_NAME_PREFIX || 'demo' }}
+          TG_PUBLIC_DNS_PARENT_ZONE: ${{ vars.TG_PUBLIC_DNS_PARENT_ZONE }}
+          TG_ENABLE_LOCAL_CLUSTER: ${{ vars.TG_ENABLE_LOCAL_CLUSTER || 'false' }}
+          TG_OIDC_SUBJECT_PREFIX_APP_A: ${{ vars.TG_OIDC_SUBJECT_PREFIX_APP_A }}
+          TG_OIDC_SUBJECT_PREFIX_APP_B: ${{ vars.TG_OIDC_SUBJECT_PREFIX_APP_B }}
+          TG_NON_INTERACTIVE: "true"
+          TG_PROVIDER_CACHE: "1"
+        run: |
+          if [[ "${{ inputs.action }}" == "apply" ]]; then
+            terragrunt run --all -- apply -input=false -auto-approve
+          else
+            terragrunt run --all -- plan -input=false -lock=false
+          fi
